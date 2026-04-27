@@ -47,7 +47,7 @@ usda.apiKey=YOUR_USDA_FOODDATA_CENTRAL_KEY
 ```
 
 Notes:
-- `local.properties` should stay local and should not be committed.
+- This project expects `local.properties` to be present in the repo for hackathon handoff convenience.
 - The USDA key is optional for the app to build, but USDA results will be missing if it is blank.
 
 ## Build the APKs
@@ -214,13 +214,8 @@ Safe to commit:
 - assets
 - README
 
-Do not commit:
-- `local.properties`
-- your USDA API key
-- local machine SDK paths
-
 Before pushing:
-1. verify `local.properties` is ignored
+1. make sure `local.properties` contains the SDK path and any demo key values you want shared
 2. sync Gradle
 3. rebuild the app
 
