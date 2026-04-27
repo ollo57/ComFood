@@ -1,0 +1,162 @@
+[
+  {
+    "canonical": "mcdonalds",
+    "aliases": ["mcdonalds", "mcdonalds", "mcdoanlds", "mcd", "mickey ds"],
+    "menuHints": ["mcchicken", "crispy chicken sandwich", "big mac", "quarter pounder", "egg mcmuffin"]
+  },
+  {
+    "canonical": "burger king",
+    "aliases": ["burger king", "burgerking", "bk"],
+    "menuHints": ["whopper", "chicken fries", "croissanwich"]
+  },
+  {
+    "canonical": "wendys",
+    "aliases": ["wendys", "wendy's"],
+    "menuHints": ["spicy chicken sandwich", "daves single", "frosty"]
+  },
+  {
+    "canonical": "chick fil a",
+    "aliases": ["chick fil a", "chickfila", "chik fil a", "chick fil", "chickfilaa"],
+    "menuHints": ["chicken sandwich", "nuggets", "cool wrap"]
+  },
+  {
+    "canonical": "subway",
+    "aliases": ["subway"],
+    "menuHints": ["italian bmt", "turkey sandwich", "meatball sub"]
+  },
+  {
+    "canonical": "taco bell",
+    "aliases": ["taco bell", "tacobell"],
+    "menuHints": ["crunchwrap", "quesadilla", "burrito supreme"]
+  },
+  {
+    "canonical": "kfc",
+    "aliases": ["kfc", "kentucky fried chicken"],
+    "menuHints": ["original recipe", "chicken sandwich", "famous bowl"]
+  },
+  {
+    "canonical": "popeyes",
+    "aliases": ["popeyes", "popeye's"],
+    "menuHints": ["chicken sandwich", "tenders", "red beans and rice"]
+  },
+  {
+    "canonical": "chipotle",
+    "aliases": ["chipotle"],
+    "menuHints": ["burrito bowl", "burrito", "quesadilla"]
+  },
+  {
+    "canonical": "panera",
+    "aliases": ["panera", "panera bread"],
+    "menuHints": ["broccoli cheddar soup", "frontega chicken", "mac and cheese"]
+  },
+  {
+    "canonical": "starbucks",
+    "aliases": ["starbucks", "starbs"],
+    "menuHints": ["latte", "frappuccino", "egg bites"]
+  },
+  {
+    "canonical": "dunkin",
+    "aliases": ["dunkin", "dunkin donuts", "dunkin'"],
+    "menuHints": ["iced coffee", "wake up wrap", "donut"]
+  },
+  {
+    "canonical": "doritos",
+    "aliases": ["doritos", "dorito"],
+    "menuHints": ["nacho cheese", "cool ranch", "tortilla chips", "chips"]
+  },
+  {
+    "canonical": "haagen dazs",
+    "aliases": ["haagen dazs", "haagen-dazs", "hagen daz", "hagen dazs", "haagen daz", "hagen dazs ice cream"],
+    "menuHints": ["vanilla ice cream", "strawberry ice cream", "cookies and cream", "ice cream"]
+  },
+  {
+    "canonical": "optimum nutrition",
+    "aliases": ["optimum nutrition", "on whey", "gold standard whey"],
+    "menuHints": ["whey protein", "protein powder", "vanilla whey", "chocolate whey"]
+  },
+  {
+    "canonical": "quest",
+    "aliases": ["quest", "quest nutrition", "quest bar"],
+    "menuHints": ["protein bar", "cookie", "chips"]
+  },
+  {
+    "canonical": "dominos",
+    "aliases": ["dominos", "domino's"],
+    "menuHints": ["pepperoni pizza", "cheese pizza", "bread twists"]
+  },
+  {
+    "canonical": "pizza hut",
+    "aliases": ["pizza hut", "pizzahut"],
+    "menuHints": ["personal pan pizza", "breadsticks", "wings"]
+  },
+  {
+    "canonical": "little caesars",
+    "aliases": ["little caesars", "little caesar's"],
+    "menuHints": ["hot n ready", "crazy bread", "deep dish"]
+  },
+  {
+    "canonical": "arbys",
+    "aliases": ["arbys", "arby's"],
+    "menuHints": ["roast beef", "beef and cheddar", "curly fries"]
+  },
+  {
+    "canonical": "five guys",
+    "aliases": ["five guys", "5 guys"],
+    "menuHints": ["cheeseburger", "little burger", "cajun fries"]
+  },
+  {
+    "canonical": "shake shack",
+    "aliases": ["shake shack", "shakeshack"],
+    "menuHints": ["shackburger", "chicken shack", "fries"]
+  },
+  {
+    "canonical": "in n out",
+    "aliases": ["in n out", "in-n-out", "innout"],
+    "menuHints": ["double double", "cheeseburger", "animal style fries"]
+  },
+  {
+    "canonical": "sonic",
+    "aliases": ["sonic", "sonic drive in"],
+    "menuHints": ["cheeseburger", "corn dog", "slush"]
+  },
+  {
+    "canonical": "dairy queen",
+    "aliases": ["dairy queen", "dq"],
+    "menuHints": ["blizzard", "chicken strip basket", "cheeseburger"]
+  },
+  {
+    "canonical": "panda express",
+    "aliases": ["panda express", "panda"],
+    "menuHints": ["orange chicken", "beijing beef", "fried rice"]
+  },
+  {
+    "canonical": "olive garden",
+    "aliases": ["olive garden"],
+    "menuHints": ["chicken alfredo", "breadsticks", "zuppa toscana"]
+  },
+  {
+    "canonical": "jersey mikes",
+    "aliases": ["jersey mikes", "jersey mike's"],
+    "menuHints": ["club sub", "cheesesteak", "turkey sub"]
+  },
+  {
+    "canonical": "jimmy johns",
+    "aliases": ["jimmy johns", "jimmy john's"],
+    "menuHints": ["turkey tom", "italian nightclub", "beach club"]
+  },
+  {
+    "canonical": "buffalo wild wings",
+    "aliases": ["buffalo wild wings", "bdubs", "b dubs"],
+    "menuHints": ["boneless wings", "traditional wings", "burger"]
+  },
+  {
+    "canonical": "costco",
+    "aliases": ["costco"],
+    "menuHints": ["hot dog", "pizza slice", "chicken bake"]
+  },
+  {
+    "canonical": "trader joes",
+    "aliases": ["trader joes", "trader joe's"],
+    "menuHints": ["orange chicken", "cauliflower gnocchi", "salad kit"]
+  }
+]

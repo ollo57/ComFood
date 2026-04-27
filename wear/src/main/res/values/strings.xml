@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">ComFood Watch</string>
+    <string name="watch_title">ComFood</string>
+    <string name="watch_subtitle">Quick meal capture</string>
+    <string name="watch_record">Tap to speak</string>
+    <string name="watch_idle">Say what you ate and approve it later on your phone.</string>
+</resources>

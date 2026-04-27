@@ -1,0 +1,230 @@
+[
+  {
+    "restaurant": "generic",
+    "name": "Strawberries",
+    "aliases": ["strawberry", "strawberries", "fresh strawberries"],
+    "macros": { "calories": 32, "protein": 0.7, "carbs": 7.7, "fat": 0.3 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Blueberries",
+    "aliases": ["blueberry", "blueberries", "fresh blueberries"],
+    "macros": { "calories": 57, "protein": 0.7, "carbs": 14.5, "fat": 0.3 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Raspberries",
+    "aliases": ["raspberry", "raspberries", "fresh raspberries"],
+    "macros": { "calories": 52, "protein": 1.2, "carbs": 11.9, "fat": 0.7 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Blackberries",
+    "aliases": ["blackberry", "blackberries", "fresh blackberries"],
+    "macros": { "calories": 43, "protein": 1.4, "carbs": 9.6, "fat": 0.5 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Watermelon",
+    "aliases": ["watermelon", "water melon"],
+    "macros": { "calories": 30, "protein": 0.6, "carbs": 7.6, "fat": 0.2 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Pineapple",
+    "aliases": ["pineapple", "fresh pineapple"],
+    "macros": { "calories": 50, "protein": 0.5, "carbs": 13.1, "fat": 0.1 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Mango",
+    "aliases": ["mango", "fresh mango"],
+    "macros": { "calories": 60, "protein": 0.8, "carbs": 15.0, "fat": 0.4 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Grapes",
+    "aliases": ["grape", "grapes", "red grapes", "green grapes"],
+    "macros": { "calories": 69, "protein": 0.7, "carbs": 18.1, "fat": 0.2 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Orange",
+    "aliases": ["orange", "oranges", "navel orange"],
+    "macros": { "calories": 47, "protein": 0.9, "carbs": 11.8, "fat": 0.1 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Pear",
+    "aliases": ["pear", "pears"],
+    "macros": { "calories": 57, "protein": 0.4, "carbs": 15.2, "fat": 0.1 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Avocado",
+    "aliases": ["avocado", "avocados"],
+    "macros": { "calories": 160, "protein": 2.0, "carbs": 8.5, "fat": 14.7 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Broccoli",
+    "aliases": ["broccoli", "steamed broccoli"],
+    "macros": { "calories": 35, "protein": 2.4, "carbs": 7.2, "fat": 0.4 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Spinach",
+    "aliases": ["spinach", "baby spinach"],
+    "macros": { "calories": 23, "protein": 2.9, "carbs": 3.6, "fat": 0.4 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Sweet Potato",
+    "aliases": ["sweet potato", "sweet potatoes", "baked sweet potato"],
+    "macros": { "calories": 90, "protein": 2.0, "carbs": 20.7, "fat": 0.2 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Oatmeal",
+    "aliases": ["oatmeal", "plain oatmeal", "rolled oats"],
+    "macros": { "calories": 68, "protein": 2.4, "carbs": 12.0, "fat": 1.4 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Greek Yogurt",
+    "aliases": ["greek yogurt", "plain greek yogurt", "yogurt"],
+    "macros": { "calories": 59, "protein": 10.0, "carbs": 3.6, "fat": 0.4 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Cottage Cheese",
+    "aliases": ["cottage cheese", "low fat cottage cheese"],
+    "macros": { "calories": 98, "protein": 11.1, "carbs": 3.4, "fat": 4.3 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Peanut Butter",
+    "aliases": ["peanut butter", "pb"],
+    "macros": { "calories": 588, "protein": 25.0, "carbs": 20.0, "fat": 50.0 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Almonds",
+    "aliases": ["almonds", "raw almonds"],
+    "macros": { "calories": 579, "protein": 21.2, "carbs": 21.6, "fat": 49.9 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Chicken Thigh",
+    "aliases": ["chicken thigh", "boneless skinless chicken thigh"],
+    "macros": { "calories": 209, "protein": 26.0, "carbs": 0.0, "fat": 10.9 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Ground Beef 90% Lean",
+    "aliases": ["ground beef", "lean ground beef", "90 lean ground beef", "hamburger meat"],
+    "macros": { "calories": 176, "protein": 20.0, "carbs": 0.0, "fat": 10.0 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Ground Turkey",
+    "aliases": ["ground turkey", "lean ground turkey"],
+    "macros": { "calories": 169, "protein": 22.0, "carbs": 0.0, "fat": 8.0 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Steak",
+    "aliases": ["steak", "sirloin steak", "beef steak"],
+    "macros": { "calories": 217, "protein": 26.0, "carbs": 0.0, "fat": 12.0 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Salmon",
+    "aliases": ["salmon", "atlantic salmon", "grilled salmon"],
+    "macros": { "calories": 208, "protein": 20.0, "carbs": 0.0, "fat": 13.0 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Tuna",
+    "aliases": ["tuna", "canned tuna", "tuna fish"],
+    "macros": { "calories": 132, "protein": 28.0, "carbs": 0.0, "fat": 1.0 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Shrimp",
+    "aliases": ["shrimp", "grilled shrimp", "sauteed shrimp"],
+    "macros": { "calories": 99, "protein": 24.0, "carbs": 0.2, "fat": 0.3 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Tofu",
+    "aliases": ["tofu", "firm tofu", "extra firm tofu"],
+    "macros": { "calories": 76, "protein": 8.0, "carbs": 1.9, "fat": 4.8 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Black Beans",
+    "aliases": ["black beans", "beans"],
+    "macros": { "calories": 132, "protein": 8.9, "carbs": 23.7, "fat": 0.5 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Protein Shake",
+    "aliases": ["protein shake", "premier protein shake", "fairlife protein shake"],
+    "macros": { "calories": 160, "protein": 30.0, "carbs": 6.0, "fat": 3.0 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Whey Protein Powder",
+    "aliases": ["whey protein", "whey protein powder", "protein powder", "vanilla whey", "chocolate whey"],
+    "macros": { "calories": 120, "protein": 24.0, "carbs": 3.0, "fat": 1.5 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Mass Gainer Shake",
+    "aliases": ["mass gainer", "mass gainer shake", "weight gainer"],
+    "macros": { "calories": 350, "protein": 25.0, "carbs": 55.0, "fat": 5.0 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Protein Bar",
+    "aliases": ["protein bar", "quest bar", "built bar", "barbell protein bar"],
+    "macros": { "calories": 200, "protein": 20.0, "carbs": 22.0, "fat": 7.0 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Vanilla Ice Cream",
+    "aliases": ["vanilla ice cream", "ice cream", "plain ice cream"],
+    "macros": { "calories": 207, "protein": 3.5, "carbs": 24.0, "fat": 11.0 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Chocolate Ice Cream",
+    "aliases": ["chocolate ice cream"],
+    "macros": { "calories": 216, "protein": 3.8, "carbs": 28.2, "fat": 11.0 }
+  },
+  {
+    "restaurant": "generic",
+    "name": "Strawberry Ice Cream",
+    "aliases": ["strawberry ice cream", "strawberry frozen dessert"],
+    "macros": { "calories": 192, "protein": 3.2, "carbs": 23.6, "fat": 10.3 }
+  },
+  {
+    "restaurant": "haagen dazs",
+    "name": "Haagen-Dazs Vanilla Ice Cream",
+    "aliases": ["haagen dazs vanilla", "hagen daz vanilla", "haagen dazs ice cream", "hagen daz ice cream", "haagen dazs"],
+    "macros": { "calories": 273, "protein": 4.6, "carbs": 21.3, "fat": 18.9 }
+  },
+  {
+    "restaurant": "haagen dazs",
+    "name": "Haagen-Dazs Strawberry Ice Cream",
+    "aliases": ["haagen dazs strawberry", "hagen daz strawberry", "strawberry haagen dazs", "strawberry hagen daz"],
+    "macros": { "calories": 250, "protein": 4.0, "carbs": 23.0, "fat": 16.0 }
+  },
+  {
+    "restaurant": "haagen dazs",
+    "name": "Haagen-Dazs Cookies and Cream Ice Cream",
+    "aliases": ["haagen dazs cookies and cream", "hagen daz cookies and cream"],
+    "macros": { "calories": 266, "protein": 4.4, "carbs": 24.4, "fat": 17.2 }
+  }
+]
