@@ -59,6 +59,20 @@ class UsdaFoodDataCentralService(
         val protein = nutrients.findValue("203", "Protein")
         val carbs = nutrients.findValue("205", "Carbohydrate, by difference")
         val fat = nutrients.findValue("204", "Total lipid (fat)")
+        val nutrition = NutritionEstimate(
+            fiberGrams = nutrients.findValue("291", "Fiber, total dietary") ?: 0.0,
+            sugarGrams = nutrients.findValue("269", "Sugars, total including NLEA") ?: 0.0,
+            sodiumMg = nutrients.findValue("307", "Sodium, Na") ?: 0.0,
+            potassiumMg = nutrients.findValue("306", "Potassium, K") ?: 0.0,
+            calciumMg = nutrients.findValue("301", "Calcium, Ca") ?: 0.0,
+            ironMg = nutrients.findValue("303", "Iron, Fe") ?: 0.0,
+            vitaminCMg = nutrients.findValue("401", "Vitamin C, total ascorbic acid") ?: 0.0,
+            vitaminDMcg = nutrients.findValue("328", "Vitamin D (D2 + D3), International Units")
+                ?.div(40.0)
+                ?: (nutrients.findValue("324", "Vitamin D (D2 + D3)") ?: 0.0),
+            vitaminAMcg = nutrients.findValue("320", "Vitamin A, RAE") ?: 0.0,
+            vitaminB12Mcg = nutrients.findValue("418", "Vitamin B-12") ?: 0.0
+        )
 
         val macros = if (calories != null && protein != null && carbs != null && fat != null) {
             MacroEstimate(
@@ -86,7 +100,8 @@ class UsdaFoodDataCentralService(
             } else {
                 "https://fdc.nal.usda.gov/"
             },
-            macrosPer100g = macros
+            macrosPer100g = macros,
+            nutritionPerServing = nutrition
         )
     }
 

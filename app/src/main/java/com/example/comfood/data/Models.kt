@@ -7,12 +7,26 @@ data class MacroEstimate(
     val fatGrams: Double
 )
 
+data class NutritionEstimate(
+    val fiberGrams: Double = 0.0,
+    val sugarGrams: Double = 0.0,
+    val sodiumMg: Double = 0.0,
+    val potassiumMg: Double = 0.0,
+    val calciumMg: Double = 0.0,
+    val ironMg: Double = 0.0,
+    val vitaminCMg: Double = 0.0,
+    val vitaminDMcg: Double = 0.0,
+    val vitaminAMcg: Double = 0.0,
+    val vitaminB12Mcg: Double = 0.0
+)
+
 data class FoodLogEntry(
     val id: String,
     val title: String,
     val source: String,
     val timestampUtcMillis: Long,
-    val macros: MacroEstimate
+    val macros: MacroEstimate,
+    val nutrition: NutritionEstimate? = null
 )
 
 data class PendingMealApproval(
@@ -62,6 +76,7 @@ data class ProductInfo(
     val ingredientsText: String?,
     val sourceUrl: String,
     val macrosPer100g: MacroEstimate?,
+    val nutritionPerServing: NutritionEstimate? = null,
     val matchedQueryScore: Int = 0
 )
 

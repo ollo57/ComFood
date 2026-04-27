@@ -17,6 +17,7 @@ class ComFoodRepository(context: Context) {
             for (index in 0 until array.length()) {
                 val item = array.getJSONObject(index)
                 val macros = item.getJSONObject("macros")
+                val nutrition = item.optJSONObject("nutrition")
                 add(
                     FoodLogEntry(
                         id = item.getString("id"),
@@ -28,7 +29,8 @@ class ComFoodRepository(context: Context) {
                             proteinGrams = macros.getDouble("proteinGrams"),
                             carbsGrams = macros.getDouble("carbsGrams"),
                             fatGrams = macros.getDouble("fatGrams")
-                        )
+                        ),
+                        nutrition = nutrition?.toNutritionEstimate()
                     )
                 )
             }
@@ -53,6 +55,7 @@ class ComFoodRepository(context: Context) {
                             put("fatGrams", entry.macros.fatGrams)
                         }
                     )
+                    put("nutrition", entry.nutrition?.toJson())
                 }
             )
         }
@@ -142,6 +145,7 @@ class ComFoodRepository(context: Context) {
                                         put("fatGrams", entry.macros.fatGrams)
                                     }
                                 )
+                                put("nutrition", entry.nutrition?.toJson())
                             }
                         )
                     }
@@ -174,6 +178,7 @@ class ComFoodRepository(context: Context) {
                 val item = optJSONObject(index) ?: continue
                 val product = item.getJSONObject("product")
                 val macros = product.optJSONObject("macrosPer100g")
+                val nutrition = product.optJSONObject("nutritionPerServing")
                 add(
                     MealCandidate(
                         product = ProductInfo(
@@ -190,6 +195,7 @@ class ComFoodRepository(context: Context) {
                                     fatGrams = it.getDouble("fatGrams")
                                 )
                             },
+                            nutritionPerServing = nutrition?.toNutritionEstimate(),
                             matchedQueryScore = product.optInt("matchedQueryScore")
                         ),
                         explanation = item.optString("explanation"),
@@ -226,11 +232,40 @@ class ComFoodRepository(context: Context) {
                                         }
                                     }
                                 )
+                                put("nutritionPerServing", candidate.product.nutritionPerServing?.toJson())
                             }
                         )
                     }
                 )
             }
+        }
+
+    private fun JSONObject.toNutritionEstimate(): NutritionEstimate =
+        NutritionEstimate(
+            fiberGrams = optDouble("fiberGrams", 0.0),
+            sugarGrams = optDouble("sugarGrams", 0.0),
+            sodiumMg = optDouble("sodiumMg", 0.0),
+            potassiumMg = optDouble("potassiumMg", 0.0),
+            calciumMg = optDouble("calciumMg", 0.0),
+            ironMg = optDouble("ironMg", 0.0),
+            vitaminCMg = optDouble("vitaminCMg", 0.0),
+            vitaminDMcg = optDouble("vitaminDMcg", 0.0),
+            vitaminAMcg = optDouble("vitaminAMcg", 0.0),
+            vitaminB12Mcg = optDouble("vitaminB12Mcg", 0.0)
+        )
+
+    private fun NutritionEstimate.toJson(): JSONObject =
+        JSONObject().apply {
+            put("fiberGrams", fiberGrams)
+            put("sugarGrams", sugarGrams)
+            put("sodiumMg", sodiumMg)
+            put("potassiumMg", potassiumMg)
+            put("calciumMg", calciumMg)
+            put("ironMg", ironMg)
+            put("vitaminCMg", vitaminCMg)
+            put("vitaminDMcg", vitaminDMcg)
+            put("vitaminAMcg", vitaminAMcg)
+            put("vitaminB12Mcg", vitaminB12Mcg)
         }
 
     private companion object {

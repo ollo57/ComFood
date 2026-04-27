@@ -39,6 +39,7 @@ class OpenFoodFactsService(
                         ingredientsText = null,
                         sourceUrl = "On-device restaurant catalog",
                         macrosPer100g = localResult.item.macros,
+                        nutritionPerServing = null,
                         matchedQueryScore = 100
                     ),
                     explanation = "Matched against the on-device restaurant menu catalog.",
@@ -56,6 +57,7 @@ class OpenFoodFactsService(
                             ingredientsText = null,
                             sourceUrl = "On-device restaurant catalog",
                             macrosPer100g = item.macros,
+                            nutritionPerServing = null,
                             matchedQueryScore = 92 - index
                         ),
                         explanation = "Likely local menu match. Add more detail if you want a tighter guess.",
@@ -167,6 +169,20 @@ class OpenFoodFactsService(
             } else {
                 null
             }
+        val nutrition = nutriments?.let {
+            NutritionEstimate(
+                fiberGrams = it.optDouble("fiber_100g").takeUnless(Double::isNaN) ?: 0.0,
+                sugarGrams = it.optDouble("sugars_100g").takeUnless(Double::isNaN) ?: 0.0,
+                sodiumMg = ((it.optDouble("sodium_100g").takeUnless(Double::isNaN) ?: 0.0) * 1000.0),
+                potassiumMg = ((it.optDouble("potassium_100g").takeUnless(Double::isNaN) ?: 0.0) * 1000.0),
+                calciumMg = ((it.optDouble("calcium_100g").takeUnless(Double::isNaN) ?: 0.0) * 1000.0),
+                ironMg = (it.optDouble("iron_100g").takeUnless(Double::isNaN) ?: 0.0),
+                vitaminCMg = (it.optDouble("vitamin-c_100g").takeUnless(Double::isNaN) ?: 0.0),
+                vitaminDMcg = ((it.optDouble("vitamin-d_100g").takeUnless(Double::isNaN) ?: 0.0) * 1000.0),
+                vitaminAMcg = ((it.optDouble("vitamin-a_100g").takeUnless(Double::isNaN) ?: 0.0) * 1000.0),
+                vitaminB12Mcg = ((it.optDouble("vitamin-b12_100g").takeUnless(Double::isNaN) ?: 0.0) * 1000.0)
+            )
+        }
 
         val sourceUrl = when {
             barcode.isNotBlank() -> "https://world.openfoodfacts.org/product/$barcode"
@@ -181,7 +197,8 @@ class OpenFoodFactsService(
             brand = product.optString("brands").ifBlank { null },
             ingredientsText = product.optString("ingredients_text").ifBlank { null },
             sourceUrl = sourceUrl,
-            macrosPer100g = macros
+            macrosPer100g = macros,
+            nutritionPerServing = nutrition
         )
     }
 
@@ -343,7 +360,8 @@ class OpenFoodFactsService(
             brand = null,
             ingredientsText = null,
             sourceUrl = "On-device fallback",
-            macrosPer100g = fallback.third
+            macrosPer100g = fallback.third,
+            nutritionPerServing = null
         )
     }
 

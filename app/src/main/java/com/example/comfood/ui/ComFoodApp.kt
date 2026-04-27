@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MenuBook
@@ -94,6 +95,7 @@ import com.example.comfood.data.IngredientSection
 import com.example.comfood.data.IngredientRule
 import com.example.comfood.data.MacroEstimate
 import com.example.comfood.data.MealLookupResult
+import com.example.comfood.data.NutritionEstimate
 import com.example.comfood.data.OpenFoodFactsService
 import com.example.comfood.data.PendingMealApproval
 import com.example.comfood.data.ProductReview
@@ -117,36 +119,52 @@ import java.util.UUID
 private enum class Screen(val label: String, val icon: ImageVector) {
     Voice("Voice", Icons.Default.Mic),
     Scanner("Scanner", Icons.Default.CameraAlt),
-    Log("Log", Icons.Default.MenuBook)
+    Log("Log", Icons.Default.MenuBook),
+    Nutrition("Nutrition", Icons.Default.CalendarMonth)
 }
 
 private enum class LogWindow { Daily, Weekly }
 
 private val voiceBackground = Brush.verticalGradient(
-    colors = listOf(Color(0xFFFEF3EC), Color(0xFFFFF7F2), Color.White)
+    colors = listOf(Color(0xFF0A1A0F), Color(0xFF112318), Color(0xFF0A1A0F))
 )
 private val scannerBackground = Brush.verticalGradient(
-    colors = listOf(Color(0xFFEAF3DE), Color(0xFFF4F8EE), Color.White)
+    colors = listOf(Color(0xFF0A1A0F), Color(0xFF112318), Color(0xFF0A1A0F))
 )
 private val logBackground = Brush.verticalGradient(
-    colors = listOf(Color(0xFFFEF3EC), Color(0xFFFFFBF8), Color.White)
+    colors = listOf(Color(0xFF0A1A0F), Color(0xFF112318), Color(0xFF0A1A0F))
 )
-private val terracotta = Color(0xFFC0692A)
-private val softPeach = Color(0xFFF0A060)
-private val warmCream = Color(0xFFFEF3EC)
-private val forestGreen = Color(0xFF3B6D11)
-private val sageGreen = Color(0xFFEAF3DE)
-private val leafGreen = Color(0xFF97C459)
-private val deepForest = Color(0xFF27500A)
+private val spotifyGreen = Color(0xFF1DB954)
+private val deepForestGreen = Color(0xFF158A3E)
+private val mintTint = Color(0xFFD4F5E2)
+private val nearBlackGreen = Color(0xFF0A1A0F)
+private val darkCard = Color(0xFF112318)
+private val elevatedSurface = Color(0xFF1A2E1F)
+private val textPrimary = Color(0xFFE8F5EC)
+private val textSecondary = Color(0xFF8BAB94)
+private val textTertiary = Color(0xFF4D7257)
+private val accentBright = Color(0xFF57D68A)
+private val accentVivid = Color(0xFF2DDE7A)
 private val softRed = Color(0xFFA32D2D)
-private val blush = Color(0xFFFCEBEB)
-private val darkAmber = Color(0xFF633806)
-private val paleAmber = Color(0xFFFAEEDA)
-private val deepNavy = Color(0xFF171C34)
-private val calorieTerracotta = Color(0xFFC0692A)
-private val proteinBlue = Color(0xFF378ADD)
-private val carbsTeal = Color(0xFF1D9E75)
-private val fatPurple = Color(0xFF8A35FF)
+private val blush = Color(0xFF36181B)
+private val darkAmber = Color(0xFFE6C77D)
+private val paleAmber = Color(0xFF3A301A)
+private val calorieAccent = Color(0xFF57D68A)
+private val proteinAccent = Color(0xFF2DDE7A)
+private val carbsAccent = Color(0xFF1DB954)
+private val fatAccent = Color(0xFF8BAB94)
+private val terracotta = spotifyGreen
+private val softPeach = accentBright
+private val warmCream = elevatedSurface
+private val forestGreen = spotifyGreen
+private val sageGreen = mintTint.copy(alpha = 0.15f)
+private val leafGreen = accentBright
+private val deepForest = deepForestGreen
+private val deepNavy = nearBlackGreen
+private val calorieTerracotta = calorieAccent
+private val proteinBlue = proteinAccent
+private val carbsTeal = carbsAccent
+private val fatPurple = fatAccent
 
 @Composable
 fun ComFoodApp(activity: Activity) {
@@ -163,6 +181,8 @@ fun ComFoodApp(activity: Activity) {
     val snackbarHostState = remember { SnackbarHostState() }
 
     var selectedScreen by rememberSaveable { mutableStateOf(Screen.Voice) }
+    var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now()) }
+    var logWindow by rememberSaveable { mutableStateOf(LogWindow.Daily) }
     val logEntries = remember { mutableStateListOf<FoodLogEntry>().apply { addAll(repository.loadEntries()) } }
     val pendingApprovals = remember {
         mutableStateListOf<PendingMealApproval>().apply { addAll(repository.loadPendingApprovals()) }
@@ -215,10 +235,10 @@ fun ComFoodApp(activity: Activity) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color.White,
+        containerColor = nearBlackGreen,
         bottomBar = {
             NavigationBar(
-                containerColor = warmCream,
+                containerColor = darkCard,
                 modifier = Modifier.navigationBarsPadding()
             ) {
                 Screen.entries.forEach { screen ->
@@ -229,21 +249,21 @@ fun ComFoodApp(activity: Activity) {
                             Icon(
                                 screen.icon,
                                 contentDescription = screen.label,
-                                tint = if (selectedScreen == screen) forestGreen else deepNavy
+                                tint = if (selectedScreen == screen) spotifyGreen else textTertiary
                             )
                         },
                         label = {
                             Text(
                                 screen.label,
-                                color = if (selectedScreen == screen) forestGreen else deepNavy
+                                color = if (selectedScreen == screen) textPrimary else textTertiary
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            indicatorColor = sageGreen,
-                            selectedIconColor = forestGreen,
-                            selectedTextColor = forestGreen,
-                            unselectedIconColor = deepNavy,
-                            unselectedTextColor = deepNavy
+                            indicatorColor = elevatedSurface,
+                            selectedIconColor = spotifyGreen,
+                            selectedTextColor = textPrimary,
+                            unselectedIconColor = textTertiary,
+                            unselectedTextColor = textTertiary
                         )
                     )
                 }
@@ -255,7 +275,7 @@ fun ComFoodApp(activity: Activity) {
                 .fillMaxSize()
                 .padding(innerPadding)
                 .safeDrawingPadding(),
-            color = Color.White
+            color = nearBlackGreen
         ) {
             when (selectedScreen) {
                 Screen.Voice -> VoiceScreen(
@@ -286,6 +306,10 @@ fun ComFoodApp(activity: Activity) {
 
                 Screen.Log -> LogScreen(
                     entries = logEntries,
+                    selectedDate = selectedDate,
+                    logWindow = logWindow,
+                    onSelectedDateChange = { selectedDate = it },
+                    onLogWindowChange = { logWindow = it },
                     pendingApprovals = pendingApprovals,
                     onApprovePending = { pending, candidate ->
                         candidate.product.macrosPer100g?.let { macros ->
@@ -296,7 +320,8 @@ fun ComFoodApp(activity: Activity) {
                                     title = pending.originalQuery.ifBlank { candidate.product.name },
                                     source = candidate.product.sourceUrl,
                                     timestampUtcMillis = pending.timestampUtcMillis,
-                                    macros = macros
+                                    macros = macros,
+                                    nutrition = candidate.product.nutritionPerServing
                                 )
                             )
                         }
@@ -308,6 +333,10 @@ fun ComFoodApp(activity: Activity) {
                         pendingApprovals.removeAll { it.id == pending.id }
                         repository.savePendingApprovals(pendingApprovals)
                     },
+                    onDeleteEntry = { entry ->
+                        logEntries.removeAll { it.id == entry.id }
+                        repository.saveEntries(logEntries)
+                    },
                     onExport = {
                         scope.launch {
                             val exportFile = withContext(Dispatchers.IO) {
@@ -316,6 +345,12 @@ fun ComFoodApp(activity: Activity) {
                             shareExport(activity, exportFile)
                         }
                     }
+                )
+
+                Screen.Nutrition -> NutritionScreen(
+                    entries = logEntries,
+                    selectedDate = selectedDate,
+                    onSelectedDateChange = { selectedDate = it }
                 )
             }
         }
@@ -382,7 +417,7 @@ private fun VoiceScreen(
                     )
                     Text(
                         "Tell me what you ate",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = textSecondary
                     )
                     Text(
                         "Rule-based parser plus Open Food Facts and USDA candidate matching",
@@ -408,7 +443,7 @@ private fun VoiceScreen(
                         contentPadding = PaddingValues(0.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.Transparent,
-                            contentColor = Color.White
+                            contentColor = textPrimary
                         )
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -443,14 +478,14 @@ private fun VoiceScreen(
                         Icon(
                             Icons.Default.Mic,
                             contentDescription = null,
-                            tint = Color(0xFFC8CEDB),
+                            tint = textTertiary,
                             modifier = Modifier.size(42.dp)
                         )
                         if (lastEstimate == null) {
                             Text("No meals logged yet", style = MaterialTheme.typography.titleMedium)
                             Text(
                                 "Tap the microphone to get started",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = textSecondary
                             )
                         } else {
                             Text(
@@ -461,7 +496,7 @@ private fun VoiceScreen(
                             )
                             Text(
                                 "Pick the closest match below. We rank likely hits from the local menu, Open Food Facts, and USDA.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = textSecondary,
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -523,7 +558,8 @@ private fun VoiceScreen(
                                                 title = mealDescription.ifBlank { candidate.product.name },
                                                 source = candidate.product.sourceUrl,
                                                 timestampUtcMillis = System.currentTimeMillis(),
-                                                macros = macros
+                                                macros = macros,
+                                                nutrition = candidate.product.nutritionPerServing
                                             )
                                         )
                                     },
@@ -547,9 +583,9 @@ private fun VoiceScreen(
                                 .padding(18.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("Most recent entry", fontWeight = FontWeight.SemiBold)
-                            Text(entry.title, style = MaterialTheme.typography.titleMedium)
-                            Text(entry.timestampUtcMillis.toDisplayTime(), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Most recent entry", fontWeight = FontWeight.SemiBold, color = textSecondary)
+                            Text(entry.title, style = MaterialTheme.typography.titleMedium, color = textPrimary)
+                            Text(entry.timestampUtcMillis.toDisplayTime(), color = textSecondary)
                             MacroRow(entry.macros)
                         }
                     }
@@ -669,11 +705,11 @@ private fun ScannerScreen(
                                         Icon(
                                             Icons.Default.CameraAlt,
                                             contentDescription = null,
-                                            tint = Color(0xFF7A839D),
+                                            tint = textTertiary,
                                             modifier = Modifier.size(42.dp)
                                         )
                                         Spacer(Modifier.height(10.dp))
-                                        Text("Position barcode in frame", color = Color.White)
+                                        Text("Position barcode in frame", color = textPrimary)
                                     }
                                 }
                                 Box(
@@ -761,7 +797,7 @@ private fun ScannerScreen(
                         Text(
                             "Common avoided ingredients",
                             fontWeight = FontWeight.SemiBold,
-                            color = deepForest
+                            color = textPrimary
                         )
                         commonAvoidedIngredients.forEach { ingredient ->
                             IngredientCheckboxRow(
@@ -787,7 +823,7 @@ private fun ScannerScreen(
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (showMoreFilters) sageGreen else warmCream,
-                                contentColor = Color.Black
+                                contentColor = textPrimary
                             )
                         ) {
                             Text(if (showMoreFilters) "Hide More Filters" else "More Ingredients + Allergens")
@@ -838,7 +874,8 @@ private fun ScannerScreen(
                                 title = reviewState.product.name,
                                 source = reviewState.product.sourceUrl,
                                 timestampUtcMillis = System.currentTimeMillis(),
-                                macros = macros
+                                macros = macros,
+                                nutrition = reviewState.product.nutritionPerServing
                             )
                         )
                     })
@@ -851,14 +888,16 @@ private fun ScannerScreen(
 @Composable
 private fun LogScreen(
     entries: List<FoodLogEntry>,
+    selectedDate: LocalDate,
+    logWindow: LogWindow,
+    onSelectedDateChange: (LocalDate) -> Unit,
+    onLogWindowChange: (LogWindow) -> Unit,
     pendingApprovals: List<PendingMealApproval>,
     onApprovePending: (PendingMealApproval, com.example.comfood.data.MealCandidate) -> Unit,
     onDismissPending: (PendingMealApproval) -> Unit,
+    onDeleteEntry: (FoodLogEntry) -> Unit = {},
     onExport: () -> Unit
 ) {
-    var logWindow by rememberSaveable { mutableStateOf(LogWindow.Daily) }
-    var selectedDate by rememberSaveable { mutableStateOf(LocalDate.now()) }
-
     val filteredEntries = remember(entries, selectedDate, logWindow) {
         when (logWindow) {
             LogWindow.Daily -> entries.filter { it.timestampUtcMillis.toLocalDate() == selectedDate }
@@ -916,12 +955,12 @@ private fun LogScreen(
                         label = "Daily",
                         selected = logWindow == LogWindow.Daily,
                         modifier = Modifier.weight(1f)
-                    ) { logWindow = LogWindow.Daily }
+                    ) { onLogWindowChange(LogWindow.Daily) }
                     TogglePill(
                         label = "Weekly",
                         selected = logWindow == LogWindow.Weekly,
                         modifier = Modifier.weight(1f)
-                    ) { logWindow = LogWindow.Weekly }
+                    ) { onLogWindowChange(LogWindow.Weekly) }
                 }
             }
 
@@ -936,10 +975,12 @@ private fun LogScreen(
                     ) {
                         IconButton(
                             onClick = {
-                                selectedDate = when (logWindow) {
+                                onSelectedDateChange(
+                                    when (logWindow) {
                                     LogWindow.Daily -> selectedDate.minusDays(1)
                                     LogWindow.Weekly -> selectedDate.minusWeeks(1)
-                                }
+                                    }
+                                )
                             }
                         ) {
                             Icon(Icons.Default.ArrowBackIosNew, contentDescription = "Previous")
@@ -961,10 +1002,12 @@ private fun LogScreen(
                         }
                         IconButton(
                             onClick = {
-                                selectedDate = when (logWindow) {
+                                onSelectedDateChange(
+                                    when (logWindow) {
                                     LogWindow.Daily -> selectedDate.plusDays(1)
                                     LogWindow.Weekly -> selectedDate.plusWeeks(1)
-                                }
+                                    }
+                                )
                             }
                         ) {
                             Icon(Icons.Default.ArrowForwardIos, contentDescription = "Next")
@@ -984,7 +1027,8 @@ private fun LogScreen(
                         Text(
                             if (logWindow == LogWindow.Daily) "Today's Summary" else "Weekly Summary",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            color = textPrimary
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -995,7 +1039,7 @@ private fun LogScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(18.dp))
-                                    .background(Color(0xFFDDF8E8))
+                                    .background(elevatedSurface)
                                     .padding(horizontal = 18.dp, vertical = 20.dp),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -1070,7 +1114,141 @@ private fun LogScreen(
                 }
             } else {
                 items(filteredEntries, key = { it.id }) { entry ->
-                    MealLogCard(entry = entry)
+                    MealLogCard(entry = entry, onDelete = { onDeleteEntry(entry) })
+                }
+            }
+        }
+    }
+}
+
+private data class NutrientGoal(
+    val label: String,
+    val current: Double,
+    val target: Double,
+    val unit: String
+)
+
+@Composable
+private fun NutritionScreen(
+    entries: List<FoodLogEntry>,
+    selectedDate: LocalDate,
+    onSelectedDateChange: (LocalDate) -> Unit
+) {
+    val dailyEntries = remember(entries, selectedDate) {
+        entries.filter { it.timestampUtcMillis.toLocalDate() == selectedDate }
+    }
+    val nutrition = sumNutrition(dailyEntries)
+    val goals = remember(nutrition) { dailyNutritionGoals(nutrition) }
+    val coverageCount = goals.count { it.current >= it.target }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(logBackground)
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 18.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Text(
+                    "Daily Nutrition",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = textPrimary
+                )
+            }
+
+            item {
+                AppCard(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { onSelectedDateChange(selectedDate.minusDays(1)) }) {
+                            Icon(Icons.Default.ArrowBackIosNew, contentDescription = "Previous", tint = textPrimary)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = spotifyGreen)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                selectedDate.format(DateTimeFormatter.ofPattern("EEEE, MMM d")),
+                                color = textPrimary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        IconButton(onClick = { onSelectedDateChange(selectedDate.plusDays(1)) }) {
+                            Icon(Icons.Default.ArrowForwardIos, contentDescription = "Next", tint = textPrimary)
+                        }
+                    }
+                }
+            }
+
+            item {
+                AppCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            "Coverage",
+                            color = textSecondary,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    "$coverageCount / ${goals.size}",
+                                    style = MaterialTheme.typography.headlineLarge,
+                                    color = textPrimary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text("Goals reached", color = textSecondary)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    "${dailyEntries.size}",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = accentBright,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text("Meals counted", color = textSecondary)
+                            }
+                        }
+                        Text(
+                            "Percentages are approximate and based on the nutrient data available in your logged foods.",
+                            color = textSecondary,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+
+            if (dailyEntries.isEmpty()) {
+                item {
+                    AppCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text("No logs for this day", style = MaterialTheme.typography.titleMedium, color = textPrimary)
+                            Text(
+                                "Log meals first and this page will estimate your daily nutrient coverage.",
+                                color = textSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            } else {
+                items(goals, key = { it.label }) { goal ->
+                    NutrientProgressCard(goal)
                 }
             }
         }
@@ -1161,7 +1339,7 @@ private fun PendingApprovalCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = darkCard),
         elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
     ) {
         Column(
@@ -1185,7 +1363,7 @@ private fun PendingApprovalCard(
                 )
                 Text(
                     pending.sourceDevice.replaceFirstChar { it.uppercase() },
-                    color = forestGreen,
+                    color = accentBright,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -1193,12 +1371,13 @@ private fun PendingApprovalCard(
             Text(
                 pending.originalQuery,
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                color = textPrimary
             )
             Text(
                 "Captured at ${pending.timestampUtcMillis.toDisplayTime()}",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = textSecondary
             )
             Box(
                 modifier = Modifier
@@ -1209,7 +1388,7 @@ private fun PendingApprovalCard(
             ) {
                 Text(
                     if (expanded) "Choose the closest result below, then approve it." else "Open this card to review likely matches before it becomes a logged meal.",
-                    color = deepForest,
+                    color = mintTint,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -1250,16 +1429,16 @@ private fun PendingApprovalCard(
                         )
                         if (!candidate.product.brand.isNullOrBlank()) {
                             Text(
-                                candidate.product.brand.orEmpty(),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Text(
-                            candidate.explanation,
+                            candidate.product.brand.orEmpty(),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = textSecondary
                         )
+                    }
+                    Text(
+                        candidate.explanation,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = textSecondary
+                    )
                         Text(
                             "Match score ${candidate.confidence}",
                             style = MaterialTheme.typography.bodySmall,
@@ -1309,7 +1488,7 @@ private fun IngredientCheckboxRow(
 }
 
 @Composable
-private fun MealLogCard(entry: FoodLogEntry) {
+private fun MealLogCard(entry: FoodLogEntry, onDelete: () -> Unit) {
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
@@ -1323,21 +1502,29 @@ private fun MealLogCard(entry: FoodLogEntry) {
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(entry.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        entry.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = textPrimary
+                    )
                     Text(
                         entry.timestampUtcMillis.toDisplayTime(),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = textSecondary
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = "Delete log", tint = textSecondary)
+                    }
                     Text(
                         "${entry.macros.calories}",
-                        color = calorieTerracotta,
+                        color = calorieAccent,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
-                    Text("kcal", style = MaterialTheme.typography.bodySmall)
+                    Text("kcal", style = MaterialTheme.typography.bodySmall, color = textSecondary)
                 }
             }
             Divider()
@@ -1356,7 +1543,7 @@ private fun MealLogCard(entry: FoodLogEntry) {
 @Composable
 private fun SummaryLine(label: String, value: String, color: Color) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, color = textSecondary)
         Text(value, color = color, fontWeight = FontWeight.Bold)
     }
 }
@@ -1373,8 +1560,8 @@ private fun TogglePill(
         modifier = modifier.height(44.dp),
         shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (selected) terracotta else Color.White,
-            contentColor = if (selected) Color.White else Color.Black
+            containerColor = if (selected) spotifyGreen else elevatedSurface,
+            contentColor = if (selected) nearBlackGreen else textPrimary
         ),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = if (selected) 4.dp else 0.dp)
     ) {
@@ -1401,7 +1588,7 @@ private fun MacroStat(label: String, value: String, color: Color) {
         Text(
             label,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = textSecondary
         )
     }
 }
@@ -1409,7 +1596,7 @@ private fun MacroStat(label: String, value: String, color: Color) {
 @Composable
 private fun MacroColumn(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = textSecondary)
         Text(value, color = color, fontWeight = FontWeight.Bold)
     }
 }
@@ -1423,7 +1610,7 @@ private fun AppCard(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.96f)),
+        colors = CardDefaults.cardColors(containerColor = darkCard),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Box(modifier = Modifier.padding(innerPadding)) {
@@ -1483,6 +1670,71 @@ private fun sumMacros(entries: List<FoodLogEntry>): MacroEstimate =
             fatGrams = acc.fatGrams + entry.macros.fatGrams
         )
     }
+
+private fun sumNutrition(entries: List<FoodLogEntry>): NutritionEstimate =
+    entries.fold(NutritionEstimate()) { acc, entry ->
+        val nutrition = entry.nutrition ?: return@fold acc
+        NutritionEstimate(
+            fiberGrams = acc.fiberGrams + nutrition.fiberGrams,
+            sugarGrams = acc.sugarGrams + nutrition.sugarGrams,
+            sodiumMg = acc.sodiumMg + nutrition.sodiumMg,
+            potassiumMg = acc.potassiumMg + nutrition.potassiumMg,
+            calciumMg = acc.calciumMg + nutrition.calciumMg,
+            ironMg = acc.ironMg + nutrition.ironMg,
+            vitaminCMg = acc.vitaminCMg + nutrition.vitaminCMg,
+            vitaminDMcg = acc.vitaminDMcg + nutrition.vitaminDMcg,
+            vitaminAMcg = acc.vitaminAMcg + nutrition.vitaminAMcg,
+            vitaminB12Mcg = acc.vitaminB12Mcg + nutrition.vitaminB12Mcg
+        )
+    }
+
+private fun dailyNutritionGoals(nutrition: NutritionEstimate): List<NutrientGoal> = listOf(
+    NutrientGoal("Fiber", nutrition.fiberGrams, 28.0, "g"),
+    NutrientGoal("Sugar", nutrition.sugarGrams, 50.0, "g"),
+    NutrientGoal("Sodium", nutrition.sodiumMg, 2300.0, "mg"),
+    NutrientGoal("Potassium", nutrition.potassiumMg, 4700.0, "mg"),
+    NutrientGoal("Calcium", nutrition.calciumMg, 1300.0, "mg"),
+    NutrientGoal("Iron", nutrition.ironMg, 18.0, "mg"),
+    NutrientGoal("Vitamin C", nutrition.vitaminCMg, 90.0, "mg"),
+    NutrientGoal("Vitamin D", nutrition.vitaminDMcg, 20.0, "mcg"),
+    NutrientGoal("Vitamin A", nutrition.vitaminAMcg, 900.0, "mcg"),
+    NutrientGoal("Vitamin B12", nutrition.vitaminB12Mcg, 2.4, "mcg")
+)
+
+@Composable
+private fun NutrientProgressCard(goal: NutrientGoal) {
+    val ratio = if (goal.target == 0.0) 0f else (goal.current / goal.target).toFloat().coerceIn(0f, 1f)
+    AppCard(modifier = Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(goal.label, color = textPrimary, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "${(ratio * 100).toInt()}%",
+                    color = accentBright,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            LinearProgressIndicator(
+                progress = { ratio },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(10.dp)
+                    .clip(RoundedCornerShape(999.dp)),
+                color = spotifyGreen,
+                trackColor = elevatedSurface
+            )
+            Text(
+                "${goal.current.pretty()} ${goal.unit} / ${goal.target.pretty()} ${goal.unit}",
+                color = textSecondary,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
 
 private fun Long.toLocalDate(): LocalDate =
     Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
