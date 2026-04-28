@@ -14,47 +14,53 @@ const val PENDING_MEAL_MESSAGE_PATH = "/pending_meal_message"
 
 object WearPendingMealSync {
     suspend fun syncFromWear(context: Context): Int {
-        val dataClient = Wearable.getDataClient(context)
-        val buffer = Tasks.await(dataClient.dataItems)
-        return try {
-            var importedCount = 0
-            for (item in buffer) {
-                val path = item.uri.path.orEmpty()
-                if (!path.startsWith(PENDING_MEAL_PATH_PREFIX)) continue
+        return runCatching {
+            val dataClient = Wearable.getDataClient(context)
+            val buffer = Tasks.await(dataClient.dataItems)
+            try {
+                var importedCount = 0
+                for (item in buffer) {
+                    val path = item.uri.path.orEmpty()
+                    if (!path.startsWith(PENDING_MEAL_PATH_PREFIX)) continue
 
-                val imported = importDataItem(context, DataMapItem.fromDataItem(item), item.uri)
-                if (imported) {
-                    importedCount += 1
+                    val imported = importDataItem(context, DataMapItem.fromDataItem(item), item.uri)
+                    if (imported) {
+                        importedCount += 1
+                    }
                 }
+                importedCount
+            } finally {
+                buffer.release()
             }
-            importedCount
-        } finally {
-            buffer.release()
-        }
+        }.getOrDefault(0)
     }
 
     suspend fun importDataItem(context: Context, dataMapItem: DataMapItem, uri: Uri? = null): Boolean {
-        val dataMap = dataMapItem.dataMap
-        return importSubmission(
-            context = context,
-            approvalId = dataMap.getString("id").orEmpty().ifBlank { UUID.randomUUID().toString() },
-            transcript = dataMap.getString("transcript").orEmpty(),
-            createdAt = dataMap.getLong("createdAt").takeIf { it > 0L } ?: System.currentTimeMillis(),
-            sourceDevice = dataMap.getString("sourceDevice").orEmpty().ifBlank { "watch" },
-            cleanupUri = uri
-        )
+        return runCatching {
+            val dataMap = dataMapItem.dataMap
+            importSubmission(
+                context = context,
+                approvalId = dataMap.getString("id").orEmpty().ifBlank { UUID.randomUUID().toString() },
+                transcript = dataMap.getString("transcript").orEmpty(),
+                createdAt = dataMap.getLong("createdAt").takeIf { it > 0L } ?: System.currentTimeMillis(),
+                sourceDevice = dataMap.getString("sourceDevice").orEmpty().ifBlank { "watch" },
+                cleanupUri = uri
+            )
+        }.getOrDefault(false)
     }
 
     suspend fun importMessagePayload(context: Context, payload: ByteArray): Boolean {
-        val root = JSONObject(payload.decodeToString())
-        return importSubmission(
-            context = context,
-            approvalId = root.optString("id").ifBlank { UUID.randomUUID().toString() },
-            transcript = root.optString("transcript"),
-            createdAt = root.optLong("createdAt").takeIf { it > 0L } ?: System.currentTimeMillis(),
-            sourceDevice = root.optString("sourceDevice").ifBlank { "watch" },
-            cleanupUri = null
-        )
+        return runCatching {
+            val root = JSONObject(payload.decodeToString())
+            importSubmission(
+                context = context,
+                approvalId = root.optString("id").ifBlank { UUID.randomUUID().toString() },
+                transcript = root.optString("transcript"),
+                createdAt = root.optLong("createdAt").takeIf { it > 0L } ?: System.currentTimeMillis(),
+                sourceDevice = root.optString("sourceDevice").ifBlank { "watch" },
+                cleanupUri = null
+            )
+        }.getOrDefault(false)
     }
 
     private suspend fun importSubmission(
@@ -78,6 +84,7 @@ object WearPendingMealSync {
         val service = OpenFoodFactsService(
             brandProfiles = loader.loadBrandProfiles(),
             localMenuItems = loader.loadLocalMenuItems(),
+            ingredientRules = loader.loadIngredientRules(),
             usdaService = UsdaFoodDataCentralService(BuildConfig.USDA_API_KEY)
         )
 

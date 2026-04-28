@@ -30,15 +30,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.ArrowBackIosNew
-import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -46,8 +46,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Divider
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,6 +66,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -94,11 +94,15 @@ import com.example.comfood.data.FoodKnowledgeLoader
 import com.example.comfood.data.IngredientSection
 import com.example.comfood.data.IngredientRule
 import com.example.comfood.data.MacroEstimate
+import com.example.comfood.data.MealCandidate
+import com.example.comfood.data.MealComposition
 import com.example.comfood.data.MealLookupResult
 import com.example.comfood.data.NutritionEstimate
 import com.example.comfood.data.OpenFoodFactsService
 import com.example.comfood.data.PendingMealApproval
 import com.example.comfood.data.ProductReview
+import com.example.comfood.data.ResolvedFoodItem
+import com.example.comfood.data.ResolvedIngredient
 import com.example.comfood.data.UsdaFoodDataCentralService
 import com.example.comfood.data.WearPendingMealSync
 import com.google.android.gms.common.api.ApiException
@@ -119,7 +123,7 @@ import java.util.UUID
 private enum class Screen(val label: String, val icon: ImageVector) {
     Voice("Voice", Icons.Default.Mic),
     Scanner("Scanner", Icons.Default.CameraAlt),
-    Log("Log", Icons.Default.MenuBook),
+    Log("Log", Icons.AutoMirrored.Filled.MenuBook),
     Nutrition("Nutrition", Icons.Default.CalendarMonth)
 }
 
@@ -135,7 +139,6 @@ private val logBackground = Brush.verticalGradient(
     colors = listOf(Color(0xFF0A1A0F), Color(0xFF112318), Color(0xFF0A1A0F))
 )
 private val spotifyGreen = Color(0xFF1DB954)
-private val deepForestGreen = Color(0xFF158A3E)
 private val mintTint = Color(0xFFD4F5E2)
 private val nearBlackGreen = Color(0xFF0A1A0F)
 private val darkCard = Color(0xFF112318)
@@ -144,7 +147,6 @@ private val textPrimary = Color(0xFFE8F5EC)
 private val textSecondary = Color(0xFF8BAB94)
 private val textTertiary = Color(0xFF4D7257)
 private val accentBright = Color(0xFF57D68A)
-private val accentVivid = Color(0xFF2DDE7A)
 private val softRed = Color(0xFFA32D2D)
 private val blush = Color(0xFF36181B)
 private val darkAmber = Color(0xFFE6C77D)
@@ -154,18 +156,16 @@ private val proteinAccent = Color(0xFF2DDE7A)
 private val carbsAccent = Color(0xFF1DB954)
 private val fatAccent = Color(0xFF8BAB94)
 private val terracotta = spotifyGreen
-private val softPeach = accentBright
 private val warmCream = elevatedSurface
 private val forestGreen = spotifyGreen
 private val sageGreen = mintTint.copy(alpha = 0.15f)
-private val leafGreen = accentBright
-private val deepForest = deepForestGreen
 private val deepNavy = nearBlackGreen
 private val calorieTerracotta = calorieAccent
 private val proteinBlue = proteinAccent
 private val carbsTeal = carbsAccent
 private val fatPurple = fatAccent
 
+@Suppress("NewApi")
 @Composable
 fun ComFoodApp(activity: Activity) {
     val context = LocalContext.current
@@ -176,7 +176,14 @@ fun ComFoodApp(activity: Activity) {
     val ingredientRules = remember { knowledgeLoader.loadIngredientRules() }
     val localMenuItems = remember { knowledgeLoader.loadLocalMenuItems() }
     val usdaService = remember { UsdaFoodDataCentralService(BuildConfig.USDA_API_KEY) }
-    val service = remember { OpenFoodFactsService(brandProfiles, localMenuItems, usdaService) }
+    val service = remember {
+        OpenFoodFactsService(
+            brandProfiles = brandProfiles,
+            localMenuItems = localMenuItems,
+            ingredientRules = ingredientRules,
+            usdaService = usdaService
+        )
+    }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -188,7 +195,7 @@ fun ComFoodApp(activity: Activity) {
         mutableStateListOf<PendingMealApproval>().apply { addAll(repository.loadPendingApprovals()) }
     }
     val avoidedIngredients = remember { mutableStateOf(repository.loadAvoidedIngredients()) }
-    var lastPendingCount by remember { mutableStateOf(pendingApprovals.size) }
+    var lastPendingCount by remember { mutableIntStateOf(pendingApprovals.size) }
 
     DisposableEffect(repository) {
         val listener = repository.registerChangeListener {
@@ -202,8 +209,10 @@ fun ComFoodApp(activity: Activity) {
     }
 
     LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            WearPendingMealSync.syncFromWear(context)
+        runCatching {
+            withContext(Dispatchers.IO) {
+                WearPendingMealSync.syncFromWear(context)
+            }
         }
         pendingApprovals.clear()
         pendingApprovals.addAll(repository.loadPendingApprovals())
@@ -213,8 +222,10 @@ fun ComFoodApp(activity: Activity) {
         val observer = object : DefaultLifecycleObserver {
             override fun onResume(owner: LifecycleOwner) {
                 scope.launch {
-                    withContext(Dispatchers.IO) {
-                        WearPendingMealSync.syncFromWear(context)
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            WearPendingMealSync.syncFromWear(context)
+                        }
                     }
                     pendingApprovals.clear()
                     pendingApprovals.addAll(repository.loadPendingApprovals())
@@ -312,16 +323,18 @@ fun ComFoodApp(activity: Activity) {
                     onLogWindowChange = { logWindow = it },
                     pendingApprovals = pendingApprovals,
                     onApprovePending = { pending, candidate ->
-                        candidate.product.macrosPer100g?.let { macros ->
+                        val resolvedComposition = candidate.mealComposition
+                            ?: pending.candidates.firstNotNullOfOrNull { it.mealComposition }
+                        resolvedMacros(pending.candidates, resolvedComposition)?.let { macros ->
                             logEntries.add(
                                 0,
                                 FoodLogEntry(
                                     id = UUID.randomUUID().toString(),
-                                    title = pending.originalQuery.ifBlank { candidate.product.name },
-                                    source = candidate.product.sourceUrl,
+                                    title = compositionTitle(resolvedComposition, pending.originalQuery.ifBlank { candidate.product.name }),
+                                    source = compositionSource(resolvedComposition, candidate.product.sourceUrl),
                                     timestampUtcMillis = pending.timestampUtcMillis,
                                     macros = macros,
-                                    nutrition = candidate.product.nutritionPerServing
+                                    nutrition = resolvedNutrition(pending.candidates, resolvedComposition)
                                 )
                             )
                         }
@@ -420,7 +433,7 @@ private fun VoiceScreen(
                         color = textSecondary
                     )
                     Text(
-                        "Rule-based parser plus Open Food Facts and USDA candidate matching",
+                        "Offline-first food resolution with structured meal decomposition",
                         color = forestGreen,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 6.dp)
@@ -488,14 +501,16 @@ private fun VoiceScreen(
                                 color = textSecondary
                             )
                         } else {
+                            val composition = lastEstimate?.composition
+                                ?: lastEstimate?.candidates?.firstNotNullOfOrNull { it.mealComposition }
                             Text(
-                                mealDescription.ifBlank { lastEstimate?.candidates?.firstOrNull()?.product?.name.orEmpty() },
+                                compositionTitle(composition, mealDescription.ifBlank { "Resolved meal" }),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 textAlign = TextAlign.Center
                             )
                             Text(
-                                "Pick the closest match below. We rank likely hits from the local menu, Open Food Facts, and USDA.",
+                                "Resolved foods and ingredients are shown below with confidence and calorie estimates.",
                                 color = textSecondary,
                                 textAlign = TextAlign.Center
                             )
@@ -516,59 +531,71 @@ private fun VoiceScreen(
             }
 
             lastEstimate?.let { estimate ->
-                item {
-                    Text(
-                        "Closest matches",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                items(estimate.candidates, key = { "${it.product.name}-${it.product.brand}-${it.product.sourceUrl}" }) { candidate ->
-                    AppCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            Text(
-                                candidate.product.name,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            if (!candidate.product.brand.isNullOrBlank()) {
-                                Text(
-                                    candidate.product.brand.orEmpty(),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                val composition = estimate.composition
+                    ?: estimate.candidates.firstNotNullOfOrNull { it.mealComposition }
+                if (composition != null) {
+                    item {
+                        Text(
+                            "Resolved Meal",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    item {
+                        MealCompositionCard(
+                            composition = composition,
+                            mealMacros = resolvedMacros(estimate.candidates, composition),
+                            onLogFood = { food ->
+                                val macros = resolvedFoodMacros(food, estimate.candidates) ?: return@MealCompositionCard
+                                onLog(
+                                    FoodLogEntry(
+                                        id = UUID.randomUUID().toString(),
+                                        title = food.label,
+                                        source = compositionSource(composition, "Food Resolution Engine"),
+                                        timestampUtcMillis = System.currentTimeMillis(),
+                                        macros = macros,
+                                        nutrition = resolvedFoodNutrition(food, estimate.candidates)
+                                    )
+                                )
+                            },
+                            onLogIngredient = { ingredient ->
+                                val macros = resolvedIngredientMacros(ingredient) ?: return@MealCompositionCard
+                                onLog(
+                                    FoodLogEntry(
+                                        id = UUID.randomUUID().toString(),
+                                        title = ingredientLogTitle(ingredient, composition),
+                                        source = compositionSource(composition, "Food Resolution Engine"),
+                                        timestampUtcMillis = System.currentTimeMillis(),
+                                        macros = macros,
+                                        nutrition = ingredient.estimatedNutrition
+                                    )
                                 )
                             }
-                            Text(
-                                candidate.explanation,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            candidate.product.macrosPer100g?.let { macros ->
-                                MacroRow(macros)
-                                Button(
-                                    onClick = {
-                                        onLog(
-                                            FoodLogEntry(
-                                                id = UUID.randomUUID().toString(),
-                                                title = mealDescription.ifBlank { candidate.product.name },
-                                                source = candidate.product.sourceUrl,
-                                                timestampUtcMillis = System.currentTimeMillis(),
-                                                macros = macros,
-                                                nutrition = candidate.product.nutritionPerServing
-                                            )
-                                        )
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.buttonColors(containerColor = forestGreen)
-                                ) {
-                                    Text("Log this match")
-                                }
-                            }
+                        )
+                    }
+                    item {
+                        val resolvedMacros = resolvedMacros(estimate.candidates, composition)
+                        val resolvedNutrition = resolvedNutrition(estimate.candidates, composition)
+                        Button(
+                            onClick = {
+                                val macros = resolvedMacros ?: return@Button
+                                onLog(
+                                    FoodLogEntry(
+                                        id = UUID.randomUUID().toString(),
+                                        title = compositionTitle(composition, mealDescription.ifBlank { "Resolved meal" }),
+                                        source = compositionSource(composition, "Food Resolution Engine"),
+                                        timestampUtcMillis = System.currentTimeMillis(),
+                                        macros = macros,
+                                        nutrition = resolvedNutrition
+                                    )
+                                )
+                            },
+                            enabled = resolvedMacros != null,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = forestGreen)
+                        ) {
+                            Text("Log Resolved Meal")
                         }
                     }
                 }
@@ -885,6 +912,7 @@ private fun ScannerScreen(
     }
 }
 
+@Suppress("NewApi")
 @Composable
 private fun LogScreen(
     entries: List<FoodLogEntry>,
@@ -893,7 +921,7 @@ private fun LogScreen(
     onSelectedDateChange: (LocalDate) -> Unit,
     onLogWindowChange: (LogWindow) -> Unit,
     pendingApprovals: List<PendingMealApproval>,
-    onApprovePending: (PendingMealApproval, com.example.comfood.data.MealCandidate) -> Unit,
+    onApprovePending: (PendingMealApproval, MealCandidate) -> Unit,
     onDismissPending: (PendingMealApproval) -> Unit,
     onDeleteEntry: (FoodLogEntry) -> Unit = {},
     onExport: () -> Unit
@@ -906,7 +934,7 @@ private fun LogScreen(
                 val end = start.plusDays(6)
                 entries.filter {
                     val date = it.timestampUtcMillis.toLocalDate()
-                    date >= start && date <= end
+                    date in start..end
                 }
             }
         }
@@ -1010,7 +1038,7 @@ private fun LogScreen(
                                 )
                             }
                         ) {
-                            Icon(Icons.Default.ArrowForwardIos, contentDescription = "Next")
+                            Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = "Next")
                         }
                     }
                 }
@@ -1128,6 +1156,7 @@ private data class NutrientGoal(
     val unit: String
 )
 
+@Suppress("NewApi")
 @Composable
 private fun NutritionScreen(
     entries: List<FoodLogEntry>,
@@ -1182,7 +1211,7 @@ private fun NutritionScreen(
                             )
                         }
                         IconButton(onClick = { onSelectedDateChange(selectedDate.plusDays(1)) }) {
-                            Icon(Icons.Default.ArrowForwardIos, contentDescription = "Next", tint = textPrimary)
+                            Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = "Next", tint = textPrimary)
                         }
                     }
                 }
@@ -1311,7 +1340,7 @@ private fun ProductReviewCard(review: ProductReview, onLog: () -> Unit) {
             }
 
             review.product.macrosPer100g?.let { macros ->
-                Divider()
+                HorizontalDivider()
                 MacroRow(macros)
             }
 
@@ -1331,10 +1360,19 @@ private fun ProductReviewCard(review: ProductReview, onLog: () -> Unit) {
 @Composable
 private fun PendingApprovalCard(
     pending: PendingMealApproval,
-    onApprove: (com.example.comfood.data.MealCandidate) -> Unit,
+    onApprove: (MealCandidate) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var expanded by rememberSaveable(pending.id) { mutableStateOf(false) }
+    val primaryCandidate = remember(pending.id, pending.candidates) {
+        pending.candidates.maxByOrNull { it.confidence }
+    }
+    val composition = remember(pending.id, pending.candidates) {
+        primaryCandidate?.mealComposition
+            ?: pending.candidates.firstNotNullOfOrNull { it.mealComposition }
+    }
+    val resolvedMacros = remember(pending.id, pending.candidates) {
+        resolvedMacros(pending.candidates, composition)
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1387,21 +1425,38 @@ private fun PendingApprovalCard(
                     .padding(14.dp)
             ) {
                 Text(
-                    if (expanded) "Choose the closest result below, then approve it." else "Open this card to review likely matches before it becomes a logged meal.",
+                    "This meal was resolved into foods and linked ingredients. Review the structure before logging.",
                     color = mintTint,
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
+            composition?.let { meal ->
+                MealCompositionCard(
+                    composition = meal,
+                    mealMacros = resolvedMacros
+                )
+            } ?: run {
+                Text(
+                    "No structured meal composition is available for this older pending entry.",
+                    color = textSecondary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Button(
-                    onClick = { expanded = !expanded },
+                    onClick = {
+                        val candidate = primaryCandidate ?: return@Button
+                        onApprove(candidate)
+                    },
+                    enabled = primaryCandidate != null && resolvedMacros != null,
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = terracotta)
+                    colors = ButtonDefaults.buttonColors(containerColor = forestGreen)
                 ) {
-                    Text(if (expanded) "Hide options" else "Show options")
+                    Text("Approve and Log")
                 }
                 Button(
                     onClick = onDismiss,
@@ -1411,54 +1466,262 @@ private fun PendingApprovalCard(
                     Text("Dismiss")
                 }
             }
+        }
+    }
+}
 
-            if (expanded) {
-                pending.candidates.forEach { candidate ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(warmCream)
-                            .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+@Composable
+private fun MealCompositionCard(
+    composition: MealComposition,
+    mealMacros: MacroEstimate?,
+    onLogFood: (ResolvedFoodItem) -> Unit = {},
+    onLogIngredient: (ResolvedIngredient) -> Unit = {}
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        MealSummaryCard(composition = composition, mealMacros = mealMacros)
+        composition.foods.forEach { food ->
+            ResolvedFoodCard(
+                food = food,
+                onLogFood = { onLogFood(food) },
+                onLogIngredient = onLogIngredient
+            )
+        }
+    }
+}
+
+@Composable
+private fun MealSummaryCard(
+    composition: MealComposition,
+    mealMacros: MacroEstimate?
+) {
+    val confidenceColor = confidenceColor(composition.overallConfidence)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = elevatedSurface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                "Meal Summary",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = textPrimary
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        "${composition.estimatedCalories ?: 0} kcal",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = calorieAccent
+                    )
+                    Text(
+                        if (composition.usedExternalLookup) {
+                            "Includes structured external fallback"
+                        } else {
+                            "Resolved fully on device"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = textSecondary
+                    )
+                }
+                ConfidenceBadge(
+                    label = "Overall ${composition.overallConfidence}%",
+                    confidence = composition.overallConfidence
+                )
+            }
+            mealMacros?.let { macros ->
+                MacroRow(macros)
+            }
+            if (mealMacros == null) {
+                Text(
+                    "Macro breakdown unavailable for this meal.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = confidenceColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResolvedFoodCard(
+    food: ResolvedFoodItem,
+    onLogFood: () -> Unit,
+    onLogIngredient: (ResolvedIngredient) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = darkCard),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        buildString {
+                            append(food.label)
+                            food.quantityText?.takeIf { it.isNotBlank() }?.let {
+                                append(" (")
+                                append(it)
+                                append(")")
+                            }
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = textPrimary
+                    )
+                    food.brand?.let {
                         Text(
-                            candidate.product.name,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        if (!candidate.product.brand.isNullOrBlank()) {
-                            Text(
-                            candidate.product.brand.orEmpty(),
+                            it.replaceFirstChar { c -> c.uppercase() },
                             style = MaterialTheme.typography.bodySmall,
                             color = textSecondary
                         )
                     }
                     Text(
-                        candidate.explanation,
+                        "Match: ${food.matchType.name}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = textTertiary
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        "${food.estimatedCalories ?: 0} kcal",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = calorieAccent
+                    )
+                    ConfidenceBadge(
+                        label = "${food.confidence}%",
+                        confidence = food.confidence
+                    )
+                }
+            }
+            if (food.ingredients.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Ingredients",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = mintTint,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    food.ingredients.forEach { ingredient ->
+                        ResolvedIngredientRow(
+                            ingredient = ingredient,
+                            onLogIngredient = { onLogIngredient(ingredient) }
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    "No linked ingredients detected.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = textSecondary
+                )
+            }
+            Button(
+                onClick = onLogFood,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = forestGreen)
+            ) {
+                Text("Log Food Item")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResolvedIngredientRow(
+    ingredient: ResolvedIngredient,
+    onLogIngredient: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(sageGreen)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    ingredient.label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = textPrimary
+                )
+                ingredient.quantityText?.let { qty ->
+                    Text(
+                        qty,
                         style = MaterialTheme.typography.bodySmall,
                         color = textSecondary
                     )
-                        Text(
-                            "Match score ${candidate.confidence}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = terracotta,
-                            fontWeight = FontWeight.Medium
-                        )
-                        candidate.product.macrosPer100g?.let { macros ->
-                            MacroRow(macros)
-                            Button(
-                                onClick = { onApprove(candidate) },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = forestGreen)
-                            ) {
-                                Text("Approve and log")
-                            }
-                        }
-                    }
+                }
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ConfidenceBadge(
+                    label = "${ingredient.confidence}%",
+                    confidence = ingredient.confidence
+                )
+                Button(
+                    onClick = onLogIngredient,
+                    colors = ButtonDefaults.buttonColors(containerColor = terracotta),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text("Log")
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ConfidenceBadge(
+    label: String,
+    confidence: Int
+) {
+    val tone = confidenceColor(confidence)
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(tone.copy(alpha = 0.2f))
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+    ) {
+        Text(
+            label,
+            color = tone,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
@@ -1527,7 +1790,7 @@ private fun MealLogCard(entry: FoodLogEntry, onDelete: () -> Unit) {
                     Text("kcal", style = MaterialTheme.typography.bodySmall, color = textSecondary)
                 }
             }
-            Divider()
+            HorizontalDivider()
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceAround
@@ -1736,9 +1999,11 @@ private fun NutrientProgressCard(goal: NutrientGoal) {
     }
 }
 
+@Suppress("NewApi")
 private fun Long.toLocalDate(): LocalDate =
     Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDate()
 
+@Suppress("NewApi")
 private fun Long.toDisplayTime(): String =
     Instant.ofEpochMilli(this)
         .atZone(ZoneId.systemDefault())
@@ -1746,6 +2011,68 @@ private fun Long.toDisplayTime(): String =
 
 private fun Double.pretty(): String =
     if (this % 1.0 == 0.0) toInt().toString() else String.format(Locale.US, "%.1f", this)
+
+private fun compositionTitle(composition: MealComposition?, fallback: String): String {
+    if (composition == null) return fallback
+    val names = composition.foods.take(3).joinToString(" + ") { food ->
+        buildString {
+            append(food.label)
+            food.quantityText?.takeIf { it.isNotBlank() }?.let {
+                append(" (")
+                append(it)
+                append(")")
+            }
+        }
+    }
+    return names.ifBlank { fallback }
+}
+
+private fun compositionSource(composition: MealComposition?, fallback: String): String =
+    when {
+        composition == null -> fallback
+        composition.usedExternalLookup -> "Food Resolution Engine (Structured OFF/USDA fallback)"
+        else -> "Food Resolution Engine (Offline)"
+    }
+
+private fun resolvedMacros(
+    candidates: List<MealCandidate>,
+    composition: MealComposition?
+): MacroEstimate? {
+    if (composition == null) return candidates.firstOrNull()?.product?.macrosPer100g
+    val foodMacros = composition.foods.mapNotNull { food ->
+        candidates.firstOrNull { candidate ->
+            candidate.product.name.equals(food.label, ignoreCase = true) &&
+                candidate.product.macrosPer100g != null
+        }?.product?.macrosPer100g
+    }
+    if (foodMacros.isNotEmpty()) {
+        val summedCalories = foodMacros.sumOf { it.calories }
+        return MacroEstimate(
+            calories = composition.estimatedCalories ?: summedCalories,
+            proteinGrams = foodMacros.sumOf { it.proteinGrams },
+            carbsGrams = foodMacros.sumOf { it.carbsGrams },
+            fatGrams = foodMacros.sumOf { it.fatGrams }
+        )
+    }
+    val firstMacro = candidates.firstOrNull { it.product.macrosPer100g != null }?.product?.macrosPer100g
+    return firstMacro?.copy(
+        calories = composition.estimatedCalories ?: firstMacro.calories
+    ) ?: composition.estimatedCalories?.let {
+        MacroEstimate(
+            calories = it,
+            proteinGrams = 0.0,
+            carbsGrams = 0.0,
+            fatGrams = 0.0
+        )
+    }
+}
+
+private fun confidenceColor(confidence: Int): Color =
+    when {
+        confidence >= 80 -> accentBright
+        confidence >= 55 -> darkAmber
+        else -> softRed
+    }
 
 private fun shareExport(activity: Activity, exportFile: File) {
     val uri: Uri = FileProvider.getUriForFile(
@@ -1760,3 +2087,52 @@ private fun shareExport(activity: Activity, exportFile: File) {
     }
     activity.startActivity(Intent.createChooser(intent, "Export ComFood data"))
 }
+
+private fun resolvedNutrition(
+    candidates: List<MealCandidate>,
+    composition: MealComposition?
+): NutritionEstimate? {
+    if (composition == null) return candidates.maxByOrNull { it.confidence }?.product?.nutritionPerServing
+    val foodNutritions = composition.foods.mapNotNull { food ->
+        candidates.firstOrNull { candidate ->
+            candidate.product.name.equals(food.label, ignoreCase = true) &&
+                candidate.product.nutritionPerServing != null
+        }?.product?.nutritionPerServing
+    }
+    if (foodNutritions.isEmpty()) return candidates.maxByOrNull { it.confidence }?.product?.nutritionPerServing
+
+    return foodNutritions.fold(NutritionEstimate()) { acc, n ->
+        NutritionEstimate(
+            fiberGrams = acc.fiberGrams + n.fiberGrams,
+            sugarGrams = acc.sugarGrams + n.sugarGrams,
+            sodiumMg = acc.sodiumMg + n.sodiumMg,
+            potassiumMg = acc.potassiumMg + n.potassiumMg,
+            calciumMg = acc.calciumMg + n.calciumMg,
+            ironMg = acc.ironMg + n.ironMg,
+            vitaminCMg = acc.vitaminCMg + n.vitaminCMg,
+            vitaminDMcg = acc.vitaminDMcg + n.vitaminDMcg,
+            vitaminAMcg = acc.vitaminAMcg + n.vitaminAMcg,
+            vitaminB12Mcg = acc.vitaminB12Mcg + n.vitaminB12Mcg
+        )
+    }
+}
+
+private fun resolvedFoodMacros(food: ResolvedFoodItem, candidates: List<MealCandidate>): MacroEstimate? {
+    return candidates.firstOrNull { it.product.name.equals(food.label, ignoreCase = true) }?.product?.macrosPer100g
+        ?: food.estimatedCalories?.let { MacroEstimate(it, 0.0, 0.0, 0.0) }
+}
+
+private fun resolvedFoodNutrition(food: ResolvedFoodItem, candidates: List<MealCandidate>): NutritionEstimate? {
+    return candidates.firstOrNull { it.product.name.equals(food.label, ignoreCase = true) }?.product?.nutritionPerServing
+        ?: food.estimatedNutrition
+}
+
+private fun resolvedIngredientMacros(ingredient: ResolvedIngredient): MacroEstimate? {
+    return ingredient.estimatedCalories?.let { MacroEstimate(it, 0.0, 0.0, 0.0) }
+}
+
+@Suppress("UNUSED_PARAMETER")
+private fun ingredientLogTitle(ingredient: ResolvedIngredient, composition: MealComposition?): String {
+    return ingredient.label
+}
+

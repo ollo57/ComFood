@@ -91,7 +91,7 @@ class ComFoodRepository(context: Context) {
                     put("originalQuery", entry.originalQuery)
                     put("sourceDevice", entry.sourceDevice)
                     put("timestampUtcMillis", entry.timestampUtcMillis)
-                    put("candidates", entry.candidates.toJsonArray())
+                    put("candidates", entry.candidates.toMealCandidateJsonArray())
                 }
             )
         }
@@ -161,7 +161,7 @@ class ComFoodRepository(context: Context) {
                                 put("originalQuery", entry.originalQuery)
                                 put("sourceDevice", entry.sourceDevice)
                                 put("timestampUtcMillis", entry.timestampUtcMillis)
-                                put("candidates", entry.candidates.toJsonArray())
+                                put("candidates", entry.candidates.toMealCandidateJsonArray())
                             }
                         )
                     }
@@ -199,19 +199,21 @@ class ComFoodRepository(context: Context) {
                             matchedQueryScore = product.optInt("matchedQueryScore")
                         ),
                         explanation = item.optString("explanation"),
-                        confidence = item.optInt("confidence")
+                        confidence = item.optInt("confidence"),
+                        mealComposition = item.optJSONObject("mealComposition")?.toMealComposition()
                     )
                 )
             }
         }
 
-    private fun List<MealCandidate>.toJsonArray(): JSONArray =
+    private fun List<MealCandidate>.toMealCandidateJsonArray(): JSONArray =
         JSONArray().apply {
-            this@toJsonArray.forEach { candidate ->
+            this@toMealCandidateJsonArray.forEach { candidate ->
                 put(
                     JSONObject().apply {
                         put("explanation", candidate.explanation)
                         put("confidence", candidate.confidence)
+                        put("mealComposition", candidate.mealComposition?.toJson())
                         put(
                             "product",
                             JSONObject().apply {
@@ -266,6 +268,108 @@ class ComFoodRepository(context: Context) {
             put("vitaminDMcg", vitaminDMcg)
             put("vitaminAMcg", vitaminAMcg)
             put("vitaminB12Mcg", vitaminB12Mcg)
+        }
+
+    private fun JSONObject.toMealComposition(): MealComposition {
+        val foodsArray = optJSONArray("foods") ?: JSONArray()
+        val ingredientsArray = optJSONArray("ingredients") ?: JSONArray()
+        return MealComposition(
+            originalInput = optString("originalInput"),
+            foods = foodsArray.toResolvedFoods(),
+            ingredients = ingredientsArray.toResolvedIngredients(),
+            estimatedCalories = optInt("estimatedCalories").takeIf { has("estimatedCalories") },
+            overallConfidence = optInt("overallConfidence"),
+            usedExternalLookup = optBoolean("usedExternalLookup", false)
+        )
+    }
+
+    private fun JSONArray.toResolvedFoods(): List<ResolvedFoodItem> =
+        buildList {
+            for (index in 0 until length()) {
+                val item = optJSONObject(index) ?: continue
+                val ingredients = item.optJSONArray("ingredients") ?: JSONArray()
+                add(
+                    ResolvedFoodItem(
+                        id = item.optString("id"),
+                        label = item.optString("label"),
+                        brand = item.optString("brand").ifBlank { null },
+                        quantityText = item.optString("quantityText").ifBlank { null },
+                        quantityMultiplier = item.optDouble("quantityMultiplier", 1.0),
+                        estimatedCalories = item.optInt("estimatedCalories").takeIf { item.has("estimatedCalories") },
+                        estimatedNutrition = item.optJSONObject("estimatedNutrition")?.toNutritionEstimate(),
+                        confidence = item.optInt("confidence"),
+                        matchType = runCatching {
+                            FoodMatchType.valueOf(item.optString("matchType"))
+                        }.getOrDefault(FoodMatchType.GenericFallback),
+                        ingredients = ingredients.toResolvedIngredients()
+                    )
+                )
+            }
+        }
+
+    private fun JSONArray.toResolvedIngredients(): List<ResolvedIngredient> =
+        buildList {
+            for (index in 0 until length()) {
+                val item = optJSONObject(index) ?: continue
+                add(
+                    ResolvedIngredient(
+                        id = item.optString("id"),
+                        label = item.optString("label"),
+                        quantityText = item.optString("quantityText").ifBlank { null },
+                        confidence = item.optInt("confidence"),
+                        parentFoodId = item.optString("parentFoodId").ifBlank { null },
+                        estimatedCalories = item.optInt("estimatedCalories").takeIf { item.has("estimatedCalories") },
+                        estimatedNutrition = item.optJSONObject("estimatedNutrition")?.toNutritionEstimate()
+                    )
+                )
+            }
+        }
+
+    private fun MealComposition.toJson(): JSONObject =
+        JSONObject().apply {
+            put("originalInput", originalInput)
+            put("foods", foods.toResolvedFoodJsonArray())
+            put("ingredients", ingredients.toResolvedIngredientJsonArray())
+            put("estimatedCalories", estimatedCalories)
+            put("overallConfidence", overallConfidence)
+            put("usedExternalLookup", usedExternalLookup)
+        }
+
+    private fun List<ResolvedFoodItem>.toResolvedFoodJsonArray(): JSONArray =
+        JSONArray().apply {
+            this@toResolvedFoodJsonArray.forEach { food ->
+                put(
+                    JSONObject().apply {
+                        put("id", food.id)
+                        put("label", food.label)
+                        put("brand", food.brand)
+                        put("quantityText", food.quantityText)
+                        put("quantityMultiplier", food.quantityMultiplier)
+                        put("estimatedCalories", food.estimatedCalories)
+                        put("estimatedNutrition", food.estimatedNutrition?.toJson())
+                        put("confidence", food.confidence)
+                        put("matchType", food.matchType.name)
+                        put("ingredients", food.ingredients.toResolvedIngredientJsonArray())
+                    }
+                )
+            }
+        }
+
+    private fun List<ResolvedIngredient>.toResolvedIngredientJsonArray(): JSONArray =
+        JSONArray().apply {
+            this@toResolvedIngredientJsonArray.forEach { ingredient ->
+                put(
+                    JSONObject().apply {
+                        put("id", ingredient.id)
+                        put("label", ingredient.label)
+                        put("quantityText", ingredient.quantityText)
+                        put("confidence", ingredient.confidence)
+                        put("parentFoodId", ingredient.parentFoodId)
+                        put("estimatedCalories", ingredient.estimatedCalories)
+                        put("estimatedNutrition", ingredient.estimatedNutrition?.toJson())
+                    }
+                )
+            }
         }
 
     private companion object {

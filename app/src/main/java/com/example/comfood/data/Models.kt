@@ -83,7 +83,8 @@ data class ProductInfo(
 data class MealCandidate(
     val product: ProductInfo,
     val explanation: String,
-    val confidence: Int
+    val confidence: Int,
+    val mealComposition: MealComposition? = null
 )
 
 data class ProductReview(
@@ -111,8 +112,67 @@ sealed interface LocalMenuMatchResult {
 
 sealed interface MealLookupResult {
     data class Success(
-        val candidates: List<MealCandidate>
+        val candidates: List<MealCandidate>,
+        val composition: MealComposition? = null
     ) : MealLookupResult
 
     data class Failure(val message: String) : MealLookupResult
 }
+
+enum class FoodMatchType {
+    Exact,
+    Alias,
+    Partial,
+    Fuzzy,
+    GenericFallback,
+    Componentized,
+    ExternalStructured
+}
+
+data class ResolvedIngredient(
+    val id: String,
+    val label: String,
+    val quantityText: String?,
+    val confidence: Int,
+    val parentFoodId: String?,
+    val estimatedCalories: Int? = null,
+    val estimatedNutrition: NutritionEstimate? = null
+)
+
+data class ResolvedFoodItem(
+    val id: String,
+    val label: String,
+    val brand: String?,
+    val quantityText: String?,
+    val quantityMultiplier: Double,
+    val estimatedCalories: Int?,
+    val estimatedNutrition: NutritionEstimate? = null,
+    val confidence: Int,
+    val matchType: FoodMatchType,
+    val ingredients: List<ResolvedIngredient>
+)
+
+data class MealComposition(
+    val originalInput: String,
+    val foods: List<ResolvedFoodItem>,
+    val ingredients: List<ResolvedIngredient>,
+    val estimatedCalories: Int?,
+    val overallConfidence: Int,
+    val usedExternalLookup: Boolean
+)
+
+enum class FoodCatalogCategory {
+    BaseFood,
+    Ingredient,
+    BrandedMeal
+}
+
+data class FoodCatalogEntry(
+    val canonicalName: String,
+    val aliases: List<String>,
+    val category: FoodCatalogCategory,
+    val typicalServingUnit: String,
+    val caloriesPerUnit: Double,
+    val nutritionPerUnit: NutritionEstimate? = null,
+    val sourceBrand: String? = null
+)
