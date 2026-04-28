@@ -10,6 +10,8 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +42,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -61,10 +64,12 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -196,6 +201,7 @@ fun ComFoodApp(activity: Activity) {
     }
     val avoidedIngredients = remember { mutableStateOf(repository.loadAvoidedIngredients()) }
     var lastPendingCount by remember { mutableIntStateOf(pendingApprovals.size) }
+    var showSuccessDialog by rememberSaveable { mutableStateOf(false) }
 
     DisposableEffect(repository) {
         val listener = repository.registerChangeListener {
@@ -281,6 +287,20 @@ fun ComFoodApp(activity: Activity) {
             }
         }
     ) { innerPadding ->
+        if (showSuccessDialog) {
+            AlertDialog(
+                onDismissRequest = { showSuccessDialog = false },
+                confirmButton = {
+                    TextButton(onClick = { showSuccessDialog = false }) {
+                        Text("OK", color = spotifyGreen)
+                    }
+                },
+                title = { Text("Logged", color = textPrimary) },
+                text = { Text("Item has been catalogued", color = textPrimary) },
+                containerColor = elevatedSurface
+            )
+        }
+
         Surface(
             modifier = Modifier
                 .fillMaxSize()
@@ -288,83 +308,96 @@ fun ComFoodApp(activity: Activity) {
                 .safeDrawingPadding(),
             color = nearBlackGreen
         ) {
-            when (selectedScreen) {
-                Screen.Voice -> VoiceScreen(
-                    service = service,
-                    latestLoggedEntry = logEntries.firstOrNull(),
-                    onLog = { entry ->
-                        logEntries.add(0, entry)
-                        repository.saveEntries(logEntries)
-                    },
-                    snackbarHostState = snackbarHostState
-                )
+            AnimatedContent(
+                targetState = selectedScreen,
+                transitionSpec = {
+                    val direction = if (targetState.ordinal > initialState.ordinal) 1 else -1
+                    (slideInHorizontally(animationSpec = tween(350)) { it * direction } + fadeIn(animationSpec = tween(350)))
+                        .togetherWith(slideOutHorizontally(animationSpec = tween(350)) { -it * direction } + fadeOut(animationSpec = tween(350)))
+                },
+                label = "ScreenTransition"
+            ) { targetScreen ->
+                when (targetScreen) {
+                    Screen.Voice -> VoiceScreen(
+                        service = service,
+                        latestLoggedEntry = logEntries.firstOrNull(),
+                        onLog = { entry ->
+                            logEntries.add(0, entry)
+                            repository.saveEntries(logEntries)
+                            showSuccessDialog = true
+                        },
+                        snackbarHostState = snackbarHostState
+                    )
 
-                Screen.Scanner -> ScannerScreen(
-                    activity = activity,
-                    service = service,
-                    ingredientRules = ingredientRules,
-                    avoidedIngredients = avoidedIngredients,
-                    onAvoidedIngredientsChanged = { selected ->
-                        avoidedIngredients.value = selected
-                        repository.saveAvoidedIngredients(selected)
-                    },
-                    onLog = { entry ->
-                        logEntries.add(0, entry)
-                        repository.saveEntries(logEntries)
-                    },
-                    snackbarHostState = snackbarHostState
-                )
+                    Screen.Scanner -> ScannerScreen(
+                        activity = activity,
+                        service = service,
+                        ingredientRules = ingredientRules,
+                        avoidedIngredients = avoidedIngredients,
+                        onAvoidedIngredientsChanged = { selected ->
+                            avoidedIngredients.value = selected
+                            repository.saveAvoidedIngredients(selected)
+                        },
+                        onLog = { entry ->
+                            logEntries.add(0, entry)
+                            repository.saveEntries(logEntries)
+                            showSuccessDialog = true
+                        },
+                        snackbarHostState = snackbarHostState
+                    )
 
-                Screen.Log -> LogScreen(
-                    entries = logEntries,
-                    selectedDate = selectedDate,
-                    logWindow = logWindow,
-                    onSelectedDateChange = { selectedDate = it },
-                    onLogWindowChange = { logWindow = it },
-                    pendingApprovals = pendingApprovals,
-                    onApprovePending = { pending, candidate ->
-                        val resolvedComposition = candidate.mealComposition
-                            ?: pending.candidates.firstNotNullOfOrNull { it.mealComposition }
-                        resolvedMacros(pending.candidates, resolvedComposition)?.let { macros ->
-                            logEntries.add(
-                                0,
-                                FoodLogEntry(
-                                    id = UUID.randomUUID().toString(),
-                                    title = compositionTitle(resolvedComposition, pending.originalQuery.ifBlank { candidate.product.name }),
-                                    source = compositionSource(resolvedComposition, candidate.product.sourceUrl),
-                                    timestampUtcMillis = pending.timestampUtcMillis,
-                                    macros = macros,
-                                    nutrition = resolvedNutrition(pending.candidates, resolvedComposition)
+                    Screen.Log -> LogScreen(
+                        entries = logEntries,
+                        selectedDate = selectedDate,
+                        logWindow = logWindow,
+                        onSelectedDateChange = { selectedDate = it },
+                        onLogWindowChange = { logWindow = it },
+                        pendingApprovals = pendingApprovals,
+                        onApprovePending = { pending, candidate ->
+                            val resolvedComposition = candidate.mealComposition
+                                ?: pending.candidates.firstNotNullOfOrNull { it.mealComposition }
+                            resolvedMacros(pending.candidates, resolvedComposition)?.let { macros ->
+                                logEntries.add(
+                                    0,
+                                    FoodLogEntry(
+                                        id = UUID.randomUUID().toString(),
+                                        title = compositionTitle(resolvedComposition, pending.originalQuery.ifBlank { candidate.product.name }),
+                                        source = compositionSource(resolvedComposition, candidate.product.sourceUrl),
+                                        timestampUtcMillis = pending.timestampUtcMillis,
+                                        macros = macros,
+                                        nutrition = resolvedNutrition(pending.candidates, resolvedComposition)
+                                    )
                                 )
-                            )
-                        }
-                        pendingApprovals.removeAll { it.id == pending.id }
-                        repository.saveEntries(logEntries)
-                        repository.savePendingApprovals(pendingApprovals)
-                    },
-                    onDismissPending = { pending ->
-                        pendingApprovals.removeAll { it.id == pending.id }
-                        repository.savePendingApprovals(pendingApprovals)
-                    },
-                    onDeleteEntry = { entry ->
-                        logEntries.removeAll { it.id == entry.id }
-                        repository.saveEntries(logEntries)
-                    },
-                    onExport = {
-                        scope.launch {
-                            val exportFile = withContext(Dispatchers.IO) {
-                                repository.writeExport(logEntries, activity.cacheDir.resolve("exports"))
                             }
-                            shareExport(activity, exportFile)
+                            pendingApprovals.removeAll { it.id == pending.id }
+                            repository.saveEntries(logEntries)
+                            repository.savePendingApprovals(pendingApprovals)
+                            showSuccessDialog = true
+                        },
+                        onDismissPending = { pending ->
+                            pendingApprovals.removeAll { it.id == pending.id }
+                            repository.savePendingApprovals(pendingApprovals)
+                        },
+                        onDeleteEntry = { entry ->
+                            logEntries.removeAll { it.id == entry.id }
+                            repository.saveEntries(logEntries)
+                        },
+                        onExport = {
+                            scope.launch {
+                                val exportFile = withContext(Dispatchers.IO) {
+                                    repository.writeExport(logEntries, activity.cacheDir.resolve("exports"))
+                                }
+                                shareExport(activity, exportFile)
+                            }
                         }
-                    }
-                )
+                    )
 
-                Screen.Nutrition -> NutritionScreen(
-                    entries = logEntries,
-                    selectedDate = selectedDate,
-                    onSelectedDateChange = { selectedDate = it }
-                )
+                    Screen.Nutrition -> NutritionScreen(
+                        entries = logEntries,
+                        selectedDate = selectedDate,
+                        onSelectedDateChange = { selectedDate = it }
+                    )
+                }
             }
         }
     }
@@ -926,20 +959,24 @@ private fun LogScreen(
     onDeleteEntry: (FoodLogEntry) -> Unit = {},
     onExport: () -> Unit
 ) {
-    val filteredEntries = remember(entries, selectedDate, logWindow) {
-        when (logWindow) {
-            LogWindow.Daily -> entries.filter { it.timestampUtcMillis.toLocalDate() == selectedDate }
-            LogWindow.Weekly -> {
-                val start = selectedDate.minusDays(selectedDate.dayOfWeek.value.toLong() - 1L)
-                val end = start.plusDays(6)
-                entries.filter {
-                    val date = it.timestampUtcMillis.toLocalDate()
-                    date in start..end
+    val filteredEntries by remember(selectedDate, logWindow) {
+        derivedStateOf {
+            when (logWindow) {
+                LogWindow.Daily -> entries.filter { it.timestampUtcMillis.toLocalDate() == selectedDate }
+                LogWindow.Weekly -> {
+                    val start = selectedDate.minusDays(selectedDate.dayOfWeek.value.toLong() - 1L)
+                    val end = start.plusDays(6)
+                    entries.filter {
+                        val date = it.timestampUtcMillis.toLocalDate()
+                        date in start..end
+                    }
                 }
             }
         }
     }
-    val summary = sumMacros(filteredEntries)
+    val summary by remember {
+        derivedStateOf { sumMacros(filteredEntries) }
+    }
 
     Box(
         modifier = Modifier
@@ -1163,12 +1200,20 @@ private fun NutritionScreen(
     selectedDate: LocalDate,
     onSelectedDateChange: (LocalDate) -> Unit
 ) {
-    val dailyEntries = remember(entries, selectedDate) {
-        entries.filter { it.timestampUtcMillis.toLocalDate() == selectedDate }
+    val dailyEntries by remember(selectedDate) {
+        derivedStateOf {
+            entries.filter { it.timestampUtcMillis.toLocalDate() == selectedDate }
+        }
     }
-    val nutrition = sumNutrition(dailyEntries)
-    val goals = remember(nutrition) { dailyNutritionGoals(nutrition) }
-    val coverageCount = goals.count { it.current >= it.target }
+    val nutrition by remember {
+        derivedStateOf { sumNutrition(dailyEntries) }
+    }
+    val goals by remember {
+        derivedStateOf { dailyNutritionGoals(nutrition) }
+    }
+    val coverageCount by remember {
+        derivedStateOf { goals.count { it.current >= it.target } }
+    }
 
     Box(
         modifier = Modifier
@@ -2014,7 +2059,7 @@ private fun Double.pretty(): String =
 
 private fun compositionTitle(composition: MealComposition?, fallback: String): String {
     if (composition == null) return fallback
-    val names = composition.foods.take(3).joinToString(" + ") { food ->
+    val foodNames = composition.foods.map { food ->
         buildString {
             append(food.label)
             food.quantityText?.takeIf { it.isNotBlank() }?.let {
@@ -2024,7 +2069,12 @@ private fun compositionTitle(composition: MealComposition?, fallback: String): S
             }
         }
     }
-    return names.ifBlank { fallback }
+    val standaloneIngredientNames = composition.ingredients
+        .filter { it.parentFoodId == null }
+        .map { it.label }
+
+    val names = (foodNames + standaloneIngredientNames).take(3).joinToString(" + ")
+    return if (names.isBlank()) fallback else names
 }
 
 private fun compositionSource(composition: MealComposition?, fallback: String): String =
@@ -2039,21 +2089,41 @@ private fun resolvedMacros(
     composition: MealComposition?
 ): MacroEstimate? {
     if (composition == null) return candidates.firstOrNull()?.product?.macrosPer100g
+    
     val foodMacros = composition.foods.mapNotNull { food ->
         candidates.firstOrNull { candidate ->
             candidate.product.name.equals(food.label, ignoreCase = true) &&
                 candidate.product.macrosPer100g != null
-        }?.product?.macrosPer100g
+        }?.product?.macrosPer100g?.let { macros ->
+            val mult = food.quantityMultiplier
+            MacroEstimate(
+                calories = (macros.calories * mult).toInt(),
+                proteinGrams = macros.proteinGrams * mult,
+                carbsGrams = macros.carbsGrams * mult,
+                fatGrams = macros.fatGrams * mult
+            )
+        }
     }
-    if (foodMacros.isNotEmpty()) {
-        val summedCalories = foodMacros.sumOf { it.calories }
+
+    val standaloneIngredientMacros = composition.ingredients
+        .filter { it.parentFoodId == null }
+        .mapNotNull { ingredient ->
+            ingredient.estimatedCalories?.let { cal ->
+                MacroEstimate(calories = cal, proteinGrams = 0.0, carbsGrams = 0.0, fatGrams = 0.0)
+            }
+        }
+
+    val allResolved = foodMacros + standaloneIngredientMacros
+
+    if (allResolved.isNotEmpty()) {
         return MacroEstimate(
-            calories = composition.estimatedCalories ?: summedCalories,
-            proteinGrams = foodMacros.sumOf { it.proteinGrams },
-            carbsGrams = foodMacros.sumOf { it.carbsGrams },
-            fatGrams = foodMacros.sumOf { it.fatGrams }
+            calories = composition.estimatedCalories ?: allResolved.sumOf { it.calories },
+            proteinGrams = allResolved.sumOf { it.proteinGrams },
+            carbsGrams = allResolved.sumOf { it.carbsGrams },
+            fatGrams = allResolved.sumOf { it.fatGrams }
         )
     }
+
     val firstMacro = candidates.firstOrNull { it.product.macrosPer100g != null }?.product?.macrosPer100g
     return firstMacro?.copy(
         calories = composition.estimatedCalories ?: firstMacro.calories
@@ -2093,15 +2163,37 @@ private fun resolvedNutrition(
     composition: MealComposition?
 ): NutritionEstimate? {
     if (composition == null) return candidates.maxByOrNull { it.confidence }?.product?.nutritionPerServing
+    
     val foodNutritions = composition.foods.mapNotNull { food ->
         candidates.firstOrNull { candidate ->
             candidate.product.name.equals(food.label, ignoreCase = true) &&
                 candidate.product.nutritionPerServing != null
-        }?.product?.nutritionPerServing
+        }?.product?.nutritionPerServing?.let { nutrition ->
+            val mult = food.quantityMultiplier
+            NutritionEstimate(
+                fiberGrams = nutrition.fiberGrams * mult,
+                sugarGrams = nutrition.sugarGrams * mult,
+                sodiumMg = nutrition.sodiumMg * mult,
+                potassiumMg = nutrition.potassiumMg * mult,
+                calciumMg = nutrition.calciumMg * mult,
+                ironMg = nutrition.ironMg * mult,
+                vitaminCMg = nutrition.vitaminCMg * mult,
+                vitaminDMcg = nutrition.vitaminDMcg * mult,
+                vitaminAMcg = nutrition.vitaminAMcg * mult,
+                vitaminB12Mcg = nutrition.vitaminB12Mcg * mult
+            )
+        }
     }
-    if (foodNutritions.isEmpty()) return candidates.maxByOrNull { it.confidence }?.product?.nutritionPerServing
 
-    return foodNutritions.fold(NutritionEstimate()) { acc, n ->
+    val standaloneNutritions = composition.ingredients
+        .filter { it.parentFoodId == null }
+        .mapNotNull { it.estimatedNutrition }
+
+    val allResolved = foodNutritions + standaloneNutritions
+
+    if (allResolved.isEmpty()) return candidates.maxByOrNull { it.confidence }?.product?.nutritionPerServing
+
+    return allResolved.fold(NutritionEstimate()) { acc, n ->
         NutritionEstimate(
             fiberGrams = acc.fiberGrams + n.fiberGrams,
             sugarGrams = acc.sugarGrams + n.sugarGrams,
@@ -2118,13 +2210,37 @@ private fun resolvedNutrition(
 }
 
 private fun resolvedFoodMacros(food: ResolvedFoodItem, candidates: List<MealCandidate>): MacroEstimate? {
-    return candidates.firstOrNull { it.product.name.equals(food.label, ignoreCase = true) }?.product?.macrosPer100g
+    val base = candidates.firstOrNull { it.product.name.equals(food.label, ignoreCase = true) }?.product?.macrosPer100g
         ?: food.estimatedCalories?.let { MacroEstimate(it, 0.0, 0.0, 0.0) }
+        ?: return null
+
+    val mult = food.quantityMultiplier
+    return MacroEstimate(
+        calories = (base.calories * mult).toInt(),
+        proteinGrams = base.proteinGrams * mult,
+        carbsGrams = base.carbsGrams * mult,
+        fatGrams = base.fatGrams * mult
+    )
 }
 
 private fun resolvedFoodNutrition(food: ResolvedFoodItem, candidates: List<MealCandidate>): NutritionEstimate? {
-    return candidates.firstOrNull { it.product.name.equals(food.label, ignoreCase = true) }?.product?.nutritionPerServing
+    val base = candidates.firstOrNull { it.product.name.equals(food.label, ignoreCase = true) }?.product?.nutritionPerServing
         ?: food.estimatedNutrition
+        ?: return null
+
+    val mult = food.quantityMultiplier
+    return NutritionEstimate(
+        fiberGrams = base.fiberGrams * mult,
+        sugarGrams = base.sugarGrams * mult,
+        sodiumMg = base.sodiumMg * mult,
+        potassiumMg = base.potassiumMg * mult,
+        calciumMg = base.calciumMg * mult,
+        ironMg = base.ironMg * mult,
+        vitaminCMg = base.vitaminCMg * mult,
+        vitaminDMcg = base.vitaminDMcg * mult,
+        vitaminAMcg = base.vitaminAMcg * mult,
+        vitaminB12Mcg = base.vitaminB12Mcg * mult
+    )
 }
 
 private fun resolvedIngredientMacros(ingredient: ResolvedIngredient): MacroEstimate? {
