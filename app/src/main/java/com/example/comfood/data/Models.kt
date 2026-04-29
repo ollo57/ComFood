@@ -26,7 +26,8 @@ data class FoodLogEntry(
     val source: String,
     val timestampUtcMillis: Long,
     val macros: MacroEstimate,
-    val nutrition: NutritionEstimate? = null
+    val nutrition: NutritionEstimate? = null,
+    val imageUrl: String? = null
 )
 
 data class PendingMealApproval(
@@ -77,7 +78,8 @@ data class ProductInfo(
     val sourceUrl: String,
     val macrosPer100g: MacroEstimate?,
     val nutritionPerServing: NutritionEstimate? = null,
-    val matchedQueryScore: Int = 0
+    val matchedQueryScore: Int = 0,
+    val imageUrl: String? = null
 )
 
 data class MealCandidate(

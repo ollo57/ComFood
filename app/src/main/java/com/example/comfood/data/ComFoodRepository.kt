@@ -30,7 +30,8 @@ class ComFoodRepository(context: Context) {
                             carbsGrams = macros.getDouble("carbsGrams"),
                             fatGrams = macros.getDouble("fatGrams")
                         ),
-                        nutrition = nutrition?.toNutritionEstimate()
+                        nutrition = nutrition?.toNutritionEstimate(),
+                        imageUrl = item.optString("imageUrl").ifBlank { null }
                     )
                 )
             }
@@ -56,6 +57,7 @@ class ComFoodRepository(context: Context) {
                         }
                     )
                     put("nutrition", entry.nutrition?.toJson())
+                    put("imageUrl", entry.imageUrl)
                 }
             )
         }
@@ -146,6 +148,7 @@ class ComFoodRepository(context: Context) {
                                     }
                                 )
                                 put("nutrition", entry.nutrition?.toJson())
+                                put("imageUrl", entry.imageUrl)
                             }
                         )
                     }
@@ -196,7 +199,8 @@ class ComFoodRepository(context: Context) {
                                 )
                             },
                             nutritionPerServing = nutrition?.toNutritionEstimate(),
-                            matchedQueryScore = product.optInt("matchedQueryScore")
+                            matchedQueryScore = product.optInt("matchedQueryScore"),
+                            imageUrl = product.optString("imageUrl").ifBlank { null }
                         ),
                         explanation = item.optString("explanation"),
                         confidence = item.optInt("confidence"),
@@ -235,6 +239,7 @@ class ComFoodRepository(context: Context) {
                                     }
                                 )
                                 put("nutritionPerServing", candidate.product.nutritionPerServing?.toJson())
+                                put("imageUrl", candidate.product.imageUrl)
                             }
                         )
                     }

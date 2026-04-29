@@ -5,7 +5,6 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
-import kotlin.math.max
 import kotlin.math.roundToInt
 
 class OpenFoodFactsService(
@@ -24,13 +23,6 @@ class OpenFoodFactsService(
         }
 
         val offline = engine.resolveOffline(cleaned)
-        if (!offline.needsExternalFallback && offline.offlineCandidates.isNotEmpty()) {
-            return MealLookupResult.Success(
-                candidates = offline.offlineCandidates,
-                composition = offline.composition
-            )
-        }
-
         val parsed = parser.parse(cleaned)
         val fallbackQueries = buildFallbackQueries(cleaned, parsed, offline.unresolvedSegments)
         val externalCandidates = mutableListOf<MealCandidate>()
@@ -47,10 +39,10 @@ class OpenFoodFactsService(
             val usdaProducts = usdaService?.searchFoods(fallbackQueries).orEmpty()
             externalCandidates += usdaProducts.mapNotNull { product ->
                 val score = product.matchStructured(cleaned.normalizeFoodText())
-                if (score >= EXTERNAL_ACCEPT_THRESHOLD) {
+                if (score >= 40) { // Lowered threshold to see more options alongside on-device
                     MealCandidate(
                         product = product.copy(matchedQueryScore = score),
-                        explanation = "Structured USDA fallback match.",
+                        explanation = "USDA Reference Match",
                         confidence = score,
                         mealComposition = offline.composition.copy(usedExternalLookup = true)
                     )
@@ -60,14 +52,22 @@ class OpenFoodFactsService(
             }
         }
 
-        val merged = (
-            offline.offlineCandidates +
-                externalCandidates
-            )
+        // Tag offline candidates more clearly
+        val labeledOffline = offline.offlineCandidates.map { 
+            it.copy(explanation = "On-Device Guess: ${it.explanation}")
+        }
+
+        val merged = (labeledOffline + externalCandidates)
             .filter { it.product.macrosPer100g != null }
             .sortedByDescending { it.confidence }
-            .distinctBy { "${it.product.name.normalizeFoodText()}|${it.product.brand.orEmpty().normalizeFoodText()}" }
-            .take(6)
+            .distinctBy { 
+                val key = "${it.product.name.normalizeFoodText()}|${it.product.brand.orEmpty().normalizeFoodText()}"
+                when {
+                    it.product.barcode.isNotBlank() -> it.product.barcode
+                    else -> "${it.explanation}|$key"
+                }
+            }
+            .take(30)
 
         if (merged.isNotEmpty()) {
             val usedExternal = merged.any {
@@ -137,16 +137,22 @@ class OpenFoodFactsService(
     ): List<MealCandidate> {
         val normalizedOriginal = originalQuery.normalizeFoodText()
         val products = fallbackQueries
-            .flatMap { phrase -> fetchProducts(searchUrlFor(phrase)) }
-            .distinctBy { "${it.barcode}-${it.name.normalizeFoodText()}-${it.brand.orEmpty().normalizeFoodText()}" }
+            .flatMap { phrase -> 
+                val results = fetchProducts(searchUrlFor(phrase))
+                if (results.isEmpty() && phrase.contains(" ")) {
+                    // Try searching each word if the phrase failed
+                    phrase.split(" ").flatMap { fetchProducts(searchUrlFor(it)) }
+                } else results
+            }
+            .distinctBy { it.barcode.ifBlank { "${it.name}|${it.brand}" } }
 
         return products.mapNotNull { product ->
             val score = product.matchStructured(normalizedOriginal)
-            if (score < EXTERNAL_ACCEPT_THRESHOLD) return@mapNotNull null
+            if (score < 40) return@mapNotNull null
 
             MealCandidate(
                 product = product.copy(matchedQueryScore = score),
-                explanation = "Structured Open Food Facts fallback match.",
+                explanation = "Open Food Facts Match",
                 confidence = score,
                 mealComposition = baseComposition.copy(usedExternalLookup = true)
             )
@@ -155,7 +161,7 @@ class OpenFoodFactsService(
 
     private fun searchUrlFor(query: String): String {
         val encoded = URLEncoder.encode(query, Charsets.UTF_8.name())
-        return "https://world.openfoodfacts.org/api/v2/search?search_terms=$encoded&search_simple=1&json=1&page_size=24&nocache=1&fields=code,product_name,product_name_en,brands,ingredients_text,nutriments"
+        return "https://world.openfoodfacts.org/cgi/search.pl?search_terms=$encoded&search_simple=1&action=process&json=1&page_size=100&fields=code,product_name,product_name_en,brands,ingredients_text,nutriments,image_url,image_front_url"
     }
 
     private fun fetchProducts(url: String): List<ProductInfo> {
@@ -172,24 +178,43 @@ class OpenFoodFactsService(
     }
 
     private fun parseProduct(product: JSONObject, barcode: String): ProductInfo {
-        val nutriments = product.optJSONObject("nutriments")
-        val calories =
-            nutriments?.optDouble("energy-kcal_100g")?.takeUnless { it.isNaN() }?.roundToInt()
-        val protein = nutriments?.optDouble("proteins_100g")?.takeUnless { it.isNaN() }
-        val carbs = nutriments?.optDouble("carbohydrates_100g")?.takeUnless { it.isNaN() }
-        val fat = nutriments?.optDouble("fat_100g")?.takeUnless { it.isNaN() }
-        val macros =
-            if (calories != null && protein != null && carbs != null && fat != null) {
-                MacroEstimate(
-                    calories = calories,
-                    proteinGrams = protein,
-                    carbsGrams = carbs,
-                    fatGrams = fat
-                )
-            } else {
-                null
-            }
-        val nutrition = nutriments?.let {
+        val nutriments = product.optJSONObject("nutriments") ?: JSONObject()
+        
+        // Robust calorie detection
+        val calories = sequenceOf(
+            "energy-kcal_serving",
+            "energy-kcal_100g",
+            "energy-kcal",
+            "energy_serving",
+            "energy_100g"
+        ).map { key -> nutriments.optDouble(key) }
+         .filter { !it.isNaN() && it > 0 }
+         .firstOrNull()
+        
+        val isKj = calories != null && (nutriments.has("energy_100g") || nutriments.has("energy_serving")) && !nutriments.has("energy-kcal_100g")
+        val finalCalories = if (isKj) (calories / 4.184) else calories
+        
+        val isPerServing = nutriments.has("energy-kcal_serving") || nutriments.has("energy_serving")
+        
+        val protein = if (isPerServing) nutriments.optDouble("proteins_serving") else nutriments.optDouble("proteins_100g")
+        val carbs = if (isPerServing) nutriments.optDouble("carbohydrates_serving") else nutriments.optDouble("carbohydrates_100g")
+        val fat = if (isPerServing) nutriments.optDouble("fat_serving") else nutriments.optDouble("fat_100g")
+        
+        val proteinGrams = if (protein.isNaN()) 0.0 else protein
+        val carbsGrams = if (carbs.isNaN()) 0.0 else carbs
+        val fatGrams = if (fat.isNaN()) 0.0 else fat
+        
+        val macroCalories = finalCalories?.roundToInt()
+        
+        val macros = if (macroCalories != null) {
+            MacroEstimate(
+                calories = macroCalories,
+                proteinGrams = proteinGrams,
+                carbsGrams = carbsGrams,
+                fatGrams = fatGrams
+            )
+        } else null
+        val nutrition = nutriments.let {
             NutritionEstimate(
                 fiberGrams = it.optDouble("fiber_100g").takeUnless(Double::isNaN) ?: 0.0,
                 sugarGrams = it.optDouble("sugars_100g").takeUnless(Double::isNaN) ?: 0.0,
@@ -209,6 +234,10 @@ class OpenFoodFactsService(
             else -> "https://world.openfoodfacts.org/"
         }
 
+        val imageUrl = product.optString("image_url")
+            .ifBlank { product.optString("image_front_url") }
+            .ifBlank { null }
+
         return ProductInfo(
             barcode = barcode,
             name = product.optString("product_name_en")
@@ -218,7 +247,8 @@ class OpenFoodFactsService(
             ingredientsText = product.optString("ingredients_text").ifBlank { null },
             sourceUrl = sourceUrl,
             macrosPer100g = macros,
-            nutritionPerServing = nutrition
+            nutritionPerServing = nutrition,
+            imageUrl = imageUrl
         )
     }
 
@@ -226,29 +256,25 @@ class OpenFoodFactsService(
         val normalizedName = name.normalizeFoodText()
         val normalizedBrand = brand.orEmpty().normalizeFoodText()
         val queryTokens = normalizedQuery.tokens()
+        if (queryTokens.isEmpty()) return 15
+        
         val nameTokens = normalizedName.tokens()
         val brandTokens = normalizedBrand.tokens()
 
+        val overlapCount = queryTokens.count { it in nameTokens || it in brandTokens }
+        val coverage = overlapCount.toDouble() / queryTokens.size
+        
         val exactName = normalizedName == normalizedQuery
-        val exactNameBonus = when {
-            exactName -> 65
-            normalizedName.startsWith(normalizedQuery) -> 52
-            normalizedQuery in normalizedName -> 40
-            else -> 0
-        }
-        val exactBrandBonus = when {
-            normalizedBrand == normalizedQuery -> 24
-            queryTokens.any { it in brandTokens } -> 14
-            else -> 0
-        }
-        val overlap = queryTokens.count { it in nameTokens } * 7
-        val fuzzy = queryTokens.sumOf { queryToken ->
-            nameTokens.maxOfOrNull { nameToken ->
-                tokenSimilarity(queryToken, nameToken)
-            } ?: 0
-        }
-        val barcodeBonus = if (barcode.isNotBlank()) 4 else 0
-        return (exactNameBonus + exactBrandBonus + overlap + fuzzy + barcodeBonus).coerceAtMost(100)
+        val containsName = normalizedName.contains(normalizedQuery) || normalizedQuery.contains(normalizedName)
+        
+        var score = (coverage * 80).toInt()
+        if (exactName) score += 20
+        else if (containsName) score += 10
+        
+        // Bonus for having macros
+        if (macrosPer100g != null) score += 5
+        
+        return score.coerceIn(0, 100)
     }
 
     private fun String.tokens(): Set<String> =
@@ -256,43 +282,6 @@ class OpenFoodFactsService(
             .split(" ")
             .filter { it.length > 2 }
             .toSet()
-
-    private fun tokenSimilarity(a: String, b: String): Int {
-        if (a == b) return 8
-        if (a.contains(b) || b.contains(a)) return 5
-        val distance = levenshtein(a, b)
-        val maxLength = max(a.length, b.length)
-        return when {
-            maxLength <= 3 && distance == 1 -> 3
-            distance == 1 -> 5
-            distance == 2 -> 4
-            distance == 3 -> 2
-            else -> 0
-        }
-    }
-
-    private fun levenshtein(a: String, b: String): Int {
-        if (a == b) return 0
-        if (a.isEmpty()) return b.length
-        if (b.isEmpty()) return a.length
-
-        val dp = IntArray(b.length + 1) { it }
-        for (i in a.indices) {
-            var previous = i
-            dp[0] = i + 1
-            for (j in b.indices) {
-                val current = dp[j + 1]
-                val cost = if (a[i] == b[j]) 0 else 1
-                dp[j + 1] = minOf(
-                    dp[j + 1] + 1,
-                    dp[j] + 1,
-                    previous + cost
-                )
-                previous = current
-            }
-        }
-        return dp[b.length]
-    }
 
     private fun fetch(url: String): String {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
@@ -309,6 +298,5 @@ class OpenFoodFactsService(
     }
 
     private companion object {
-        const val EXTERNAL_ACCEPT_THRESHOLD = 85
     }
 }

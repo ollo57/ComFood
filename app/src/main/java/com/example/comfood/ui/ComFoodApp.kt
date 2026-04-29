@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.speech.RecognizerIntent
 import android.widget.Toast
+import coil.compose.AsyncImage
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -361,11 +362,12 @@ fun ComFoodApp(activity: Activity) {
                                     0,
                                     FoodLogEntry(
                                         id = UUID.randomUUID().toString(),
-                                        title = compositionTitle(resolvedComposition, pending.originalQuery.ifBlank { candidate.product.name }),
+                                        title = compositionTitle(resolvedComposition, pending.candidates, pending.originalQuery.ifBlank { candidate.product.name }),
                                         source = compositionSource(resolvedComposition, candidate.product.sourceUrl),
                                         timestampUtcMillis = pending.timestampUtcMillis,
                                         macros = macros,
-                                        nutrition = resolvedNutrition(pending.candidates, resolvedComposition)
+                                        nutrition = resolvedNutrition(pending.candidates, resolvedComposition),
+                                        imageUrl = candidate.product.imageUrl ?: pending.candidates.firstOrNull { it.product.imageUrl != null }?.product?.imageUrl
                                     )
                                 )
                             }
@@ -536,12 +538,21 @@ private fun VoiceScreen(
                         } else {
                             val composition = lastEstimate?.composition
                                 ?: lastEstimate?.candidates?.firstNotNullOfOrNull { it.mealComposition }
+                            val totalMacros = resolvedMacros(lastEstimate?.candidates.orEmpty(), composition)
                             Text(
-                                compositionTitle(composition, mealDescription.ifBlank { "Resolved meal" }),
+                                compositionTitle(composition, lastEstimate?.candidates.orEmpty(), mealDescription.ifBlank { "Resolved meal" }),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 textAlign = TextAlign.Center
                             )
+                            if (totalMacros != null) {
+                                Text(
+                                    "${totalMacros.calories} kcal",
+                                    color = calorieAccent,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                             Text(
                                 "Resolved foods and ingredients are shown below with confidence and calorie estimates.",
                                 color = textSecondary,
@@ -578,6 +589,7 @@ private fun VoiceScreen(
                     item {
                         MealCompositionCard(
                             composition = composition,
+                            candidates = estimate.candidates,
                             mealMacros = resolvedMacros(estimate.candidates, composition),
                             onLogFood = { food ->
                                 val macros = resolvedFoodMacros(food, estimate.candidates) ?: return@MealCompositionCard
@@ -588,7 +600,8 @@ private fun VoiceScreen(
                                         source = compositionSource(composition, "Food Resolution Engine"),
                                         timestampUtcMillis = System.currentTimeMillis(),
                                         macros = macros,
-                                        nutrition = resolvedFoodNutrition(food, estimate.candidates)
+                                        nutrition = resolvedFoodNutrition(food, estimate.candidates),
+                                        imageUrl = estimate.candidates.firstOrNull { it.product.name.equals(food.label, ignoreCase = true) }?.product?.imageUrl
                                     )
                                 )
                             },
@@ -616,11 +629,12 @@ private fun VoiceScreen(
                                 onLog(
                                     FoodLogEntry(
                                         id = UUID.randomUUID().toString(),
-                                        title = compositionTitle(composition, mealDescription.ifBlank { "Resolved meal" }),
+                                        title = compositionTitle(composition, estimate.candidates, mealDescription.ifBlank { "Resolved meal" }),
                                         source = compositionSource(composition, "Food Resolution Engine"),
                                         timestampUtcMillis = System.currentTimeMillis(),
                                         macros = macros,
-                                        nutrition = resolvedNutrition
+                                        nutrition = resolvedNutrition,
+                                        imageUrl = estimate.candidates.firstOrNull { it.product.imageUrl != null }?.product?.imageUrl
                                     )
                                 )
                             },
@@ -629,6 +643,30 @@ private fun VoiceScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = forestGreen)
                         ) {
                             Text("Log Resolved Meal")
+                        }
+                    }
+
+                    if (estimate.candidates.isNotEmpty()) {
+                        item {
+                            Text(
+                                "Alternative Options",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                            )
+                        }
+                        items(estimate.candidates) { candidate ->
+                            PendingApprovalCard(
+                                pending = PendingMealApproval(
+                                    id = UUID.randomUUID().toString(),
+                                    originalQuery = mealDescription,
+                                    sourceDevice = candidate.explanation,
+                                    timestampUtcMillis = System.currentTimeMillis(),
+                                    candidates = listOf(candidate)
+                                ),
+                                onApprove = { onLog(candidate.toLogEntry(mealDescription)) },
+                                onDismiss = { /* In this screen we don't dismiss individual ones from the list easily */ }
+                            )
                         }
                     }
                 }
@@ -935,7 +973,8 @@ private fun ScannerScreen(
                                 source = reviewState.product.sourceUrl,
                                 timestampUtcMillis = System.currentTimeMillis(),
                                 macros = macros,
-                                nutrition = reviewState.product.nutritionPerServing
+                                nutrition = reviewState.product.nutritionPerServing,
+                                imageUrl = reviewState.product.imageUrl
                             )
                         )
                     })
@@ -1338,13 +1377,31 @@ private fun ProductReviewCard(review: ProductReview, onLog: () -> Unit) {
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                review.product.name,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-            review.product.brand?.let {
-                Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                review.product.imageUrl?.let { url ->
+                    AsyncImage(
+                        model = url,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(nearBlackGreen)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        review.product.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    review.product.brand?.let {
+                        Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
 
             if (review.blockedIngredients.isEmpty()) {
@@ -1451,17 +1508,35 @@ private fun PendingApprovalCard(
                     fontWeight = FontWeight.SemiBold
                 )
             }
-            Text(
-                pending.originalQuery,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = textPrimary
-            )
-            Text(
-                "Captured at ${pending.timestampUtcMillis.toDisplayTime()}",
-                style = MaterialTheme.typography.bodySmall,
-                color = textSecondary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                primaryCandidate?.product?.imageUrl?.let { url ->
+                    AsyncImage(
+                        model = url,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(elevatedSurface)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        pending.originalQuery,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = textPrimary
+                    )
+                    Text(
+                        "Captured at ${pending.timestampUtcMillis.toDisplayTime()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = textSecondary
+                    )
+                }
+            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1478,6 +1553,7 @@ private fun PendingApprovalCard(
             composition?.let { meal ->
                 MealCompositionCard(
                     composition = meal,
+                    candidates = pending.candidates,
                     mealMacros = resolvedMacros
                 )
             } ?: run {
@@ -1518,6 +1594,7 @@ private fun PendingApprovalCard(
 @Composable
 private fun MealCompositionCard(
     composition: MealComposition,
+    candidates: List<MealCandidate>,
     mealMacros: MacroEstimate?,
     onLogFood: (ResolvedFoodItem) -> Unit = {},
     onLogIngredient: (ResolvedIngredient) -> Unit = {}
@@ -1526,7 +1603,7 @@ private fun MealCompositionCard(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        MealSummaryCard(composition = composition, mealMacros = mealMacros)
+        MealSummaryCard(composition = composition, candidates = candidates, mealMacros = mealMacros)
         composition.foods.forEach { food ->
             ResolvedFoodCard(
                 food = food,
@@ -1540,6 +1617,7 @@ private fun MealCompositionCard(
 @Composable
 private fun MealSummaryCard(
     composition: MealComposition,
+    candidates: List<MealCandidate>,
     mealMacros: MacroEstimate?
 ) {
     val confidenceColor = confidenceColor(composition.overallConfidence)
@@ -1555,12 +1633,30 @@ private fun MealSummaryCard(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(
-                "Meal Summary",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = textPrimary
-            )
+            val totalMacros = mealMacros ?: MacroEstimate(composition.estimatedCalories ?: 0, 0.0, 0.0, 0.0)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                candidates.firstOrNull { it.product.imageUrl != null }?.product?.imageUrl?.let { url ->
+                    AsyncImage(
+                        model = url,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(nearBlackGreen)
+                    )
+                }
+                Text(
+                    compositionTitle(composition, candidates, "Resolved Meal"),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = textPrimary,
+                    modifier = Modifier.weight(1f)
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1568,7 +1664,7 @@ private fun MealSummaryCard(
             ) {
                 Column {
                     Text(
-                        "${composition.estimatedCalories ?: 0} kcal",
+                        "${totalMacros.calories} kcal",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = calorieAccent
@@ -1799,28 +1895,42 @@ private fun IngredientCheckboxRow(
 private fun MealLogCard(entry: FoodLogEntry, onDelete: () -> Unit) {
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        entry.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = textPrimary
-                    )
-                    Text(
-                        entry.timestampUtcMillis.toDisplayTime(),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = textSecondary
-                    )
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    entry.imageUrl?.let { url ->
+                        AsyncImage(
+                            model = url,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(nearBlackGreen)
+                        )
+                    }
+                    Column {
+                        Text(
+                            entry.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = textPrimary
+                        )
+                        Text(
+                            entry.timestampUtcMillis.toDisplayTime(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = textSecondary
+                        )
+                    }
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     IconButton(onClick = onDelete) {
@@ -2057,24 +2167,27 @@ private fun Long.toDisplayTime(): String =
 private fun Double.pretty(): String =
     if (this % 1.0 == 0.0) toInt().toString() else String.format(Locale.US, "%.1f", this)
 
-private fun compositionTitle(composition: MealComposition?, fallback: String): String {
-    if (composition == null) return fallback
-    val foodNames = composition.foods.map { food ->
-        buildString {
-            append(food.label)
-            food.quantityText?.takeIf { it.isNotBlank() }?.let {
-                append(" (")
-                append(it)
-                append(")")
+private fun compositionTitle(composition: MealComposition?, candidates: List<MealCandidate>, fallback: String): String {
+    val structuredName = composition?.let { comp ->
+        val foodNames = comp.foods.map { food ->
+            buildString {
+                append(food.label)
+                food.quantityText?.takeIf { it.isNotBlank() }?.let {
+                    append(" (")
+                    append(it)
+                    append(")")
+                }
             }
         }
-    }
-    val standaloneIngredientNames = composition.ingredients
-        .filter { it.parentFoodId == null }
-        .map { it.label }
+        val standaloneIngredientNames = comp.ingredients
+            .filter { it.parentFoodId == null }
+            .map { it.label }
 
-    val names = (foodNames + standaloneIngredientNames).take(3).joinToString(" + ")
-    return if (names.isBlank()) fallback else names
+        val names = (foodNames + standaloneIngredientNames).take(3).joinToString(" + ")
+        if (names.isBlank()) null else names
+    }
+    
+    return structuredName ?: candidates.firstOrNull()?.product?.name ?: fallback
 }
 
 private fun compositionSource(composition: MealComposition?, fallback: String): String =
@@ -2088,20 +2201,38 @@ private fun resolvedMacros(
     candidates: List<MealCandidate>,
     composition: MealComposition?
 ): MacroEstimate? {
-    if (composition == null) return candidates.firstOrNull()?.product?.macrosPer100g
+    if (composition == null || (composition.foods.isEmpty() && composition.ingredients.isEmpty())) {
+        return candidates.firstOrNull { it.product.macrosPer100g != null }?.product?.macrosPer100g
+    }
     
     val foodMacros = composition.foods.mapNotNull { food ->
-        candidates.firstOrNull { candidate ->
-            candidate.product.name.equals(food.label, ignoreCase = true) &&
-                candidate.product.macrosPer100g != null
-        }?.product?.macrosPer100g?.let { macros ->
-            val mult = food.quantityMultiplier
-            MacroEstimate(
-                calories = (macros.calories * mult).toInt(),
-                proteinGrams = macros.proteinGrams * mult,
-                carbsGrams = macros.carbsGrams * mult,
-                fatGrams = macros.fatGrams * mult
-            )
+        val candidate = candidates.firstOrNull { it.product.name.equals(food.label, ignoreCase = true) }
+            ?: candidates.firstOrNull { it.product.name.contains(food.label, ignoreCase = true) }
+            
+        candidate?.product?.macrosPer100g?.let { macros ->
+            val isOff = candidate.product.sourceUrl.contains("openfoodfacts") || 
+                        candidate.explanation.contains("Open Food Facts")
+            
+            val targetCalories = food.estimatedCalories?.toDouble()
+            
+            if (isOff && targetCalories != null && macros.calories > 0) {
+                // Scale 100g macros to the estimated portion calories
+                val scale = targetCalories / macros.calories.toDouble()
+                MacroEstimate(
+                    calories = targetCalories.toInt(),
+                    proteinGrams = macros.proteinGrams * scale,
+                    carbsGrams = macros.carbsGrams * scale,
+                    fatGrams = macros.fatGrams * scale
+                )
+            } else {
+                val mult = food.quantityMultiplier
+                MacroEstimate(
+                    calories = (macros.calories * mult).toInt(),
+                    proteinGrams = macros.proteinGrams * mult,
+                    carbsGrams = macros.carbsGrams * mult,
+                    fatGrams = macros.fatGrams * mult
+                )
+            }
         }
     }
 
@@ -2162,26 +2293,49 @@ private fun resolvedNutrition(
     candidates: List<MealCandidate>,
     composition: MealComposition?
 ): NutritionEstimate? {
-    if (composition == null) return candidates.maxByOrNull { it.confidence }?.product?.nutritionPerServing
+    if (composition == null || (composition.foods.isEmpty() && composition.ingredients.isEmpty())) {
+        return candidates.firstOrNull()?.product?.nutritionPerServing
+    }
     
     val foodNutritions = composition.foods.mapNotNull { food ->
-        candidates.firstOrNull { candidate ->
-            candidate.product.name.equals(food.label, ignoreCase = true) &&
-                candidate.product.nutritionPerServing != null
-        }?.product?.nutritionPerServing?.let { nutrition ->
-            val mult = food.quantityMultiplier
-            NutritionEstimate(
-                fiberGrams = nutrition.fiberGrams * mult,
-                sugarGrams = nutrition.sugarGrams * mult,
-                sodiumMg = nutrition.sodiumMg * mult,
-                potassiumMg = nutrition.potassiumMg * mult,
-                calciumMg = nutrition.calciumMg * mult,
-                ironMg = nutrition.ironMg * mult,
-                vitaminCMg = nutrition.vitaminCMg * mult,
-                vitaminDMcg = nutrition.vitaminDMcg * mult,
-                vitaminAMcg = nutrition.vitaminAMcg * mult,
-                vitaminB12Mcg = nutrition.vitaminB12Mcg * mult
-            )
+        val candidate = candidates.firstOrNull { it.product.name.equals(food.label, ignoreCase = true) }
+            ?: candidates.firstOrNull { it.product.name.contains(food.label, ignoreCase = true) }
+            
+        candidate?.product?.nutritionPerServing?.let { nutrition ->
+            val isOff = candidate.product.sourceUrl.contains("openfoodfacts") || 
+                        candidate.explanation.contains("Open Food Facts")
+            val targetCalories = food.estimatedCalories?.toDouble()
+            val candidateCalories = candidate.product.macrosPer100g?.calories?.toDouble()
+            
+            if (isOff && targetCalories != null && candidateCalories != null && candidateCalories > 0) {
+                val scale = targetCalories / candidateCalories
+                NutritionEstimate(
+                    fiberGrams = nutrition.fiberGrams * scale,
+                    sugarGrams = nutrition.sugarGrams * scale,
+                    sodiumMg = nutrition.sodiumMg * scale,
+                    potassiumMg = nutrition.potassiumMg * scale,
+                    calciumMg = nutrition.calciumMg * scale,
+                    ironMg = nutrition.ironMg * scale,
+                    vitaminCMg = nutrition.vitaminCMg * scale,
+                    vitaminDMcg = nutrition.vitaminDMcg * scale,
+                    vitaminAMcg = nutrition.vitaminAMcg * scale,
+                    vitaminB12Mcg = nutrition.vitaminB12Mcg * scale
+                )
+            } else {
+                val mult = food.quantityMultiplier
+                NutritionEstimate(
+                    fiberGrams = nutrition.fiberGrams * mult,
+                    sugarGrams = nutrition.sugarGrams * mult,
+                    sodiumMg = nutrition.sodiumMg * mult,
+                    potassiumMg = nutrition.potassiumMg * mult,
+                    calciumMg = nutrition.calciumMg * mult,
+                    ironMg = nutrition.ironMg * mult,
+                    vitaminCMg = nutrition.vitaminCMg * mult,
+                    vitaminDMcg = nutrition.vitaminDMcg * mult,
+                    vitaminAMcg = nutrition.vitaminAMcg * mult,
+                    vitaminB12Mcg = nutrition.vitaminB12Mcg * mult
+                )
+            }
         }
     }
 
@@ -2210,37 +2364,74 @@ private fun resolvedNutrition(
 }
 
 private fun resolvedFoodMacros(food: ResolvedFoodItem, candidates: List<MealCandidate>): MacroEstimate? {
-    val base = candidates.firstOrNull { it.product.name.equals(food.label, ignoreCase = true) }?.product?.macrosPer100g
+    val candidate = candidates.firstOrNull { it.product.name.equals(food.label, ignoreCase = true) }
+    val base = candidate?.product?.macrosPer100g
         ?: food.estimatedCalories?.let { MacroEstimate(it, 0.0, 0.0, 0.0) }
         ?: return null
 
-    val mult = food.quantityMultiplier
-    return MacroEstimate(
-        calories = (base.calories * mult).toInt(),
-        proteinGrams = base.proteinGrams * mult,
-        carbsGrams = base.carbsGrams * mult,
-        fatGrams = base.fatGrams * mult
-    )
+    val isOff = candidate?.product?.sourceUrl?.contains("openfoodfacts") == true || 
+                candidate?.explanation?.contains("Open Food Facts") == true
+    val targetCalories = food.estimatedCalories?.toDouble()
+
+    return if (isOff && targetCalories != null && base.calories > 0) {
+        val scale = targetCalories / base.calories.toDouble()
+        MacroEstimate(
+            calories = targetCalories.toInt(),
+            proteinGrams = base.proteinGrams * scale,
+            carbsGrams = base.carbsGrams * scale,
+            fatGrams = base.fatGrams * scale
+        )
+    } else {
+        val mult = food.quantityMultiplier
+        MacroEstimate(
+            calories = (base.calories * mult).toInt(),
+            proteinGrams = base.proteinGrams * mult,
+            carbsGrams = base.carbsGrams * mult,
+            fatGrams = base.fatGrams * mult
+        )
+    }
 }
 
 private fun resolvedFoodNutrition(food: ResolvedFoodItem, candidates: List<MealCandidate>): NutritionEstimate? {
-    val base = candidates.firstOrNull { it.product.name.equals(food.label, ignoreCase = true) }?.product?.nutritionPerServing
+    val candidate = candidates.firstOrNull { it.product.name.equals(food.label, ignoreCase = true) }
+    val base = candidate?.product?.nutritionPerServing
         ?: food.estimatedNutrition
         ?: return null
 
-    val mult = food.quantityMultiplier
-    return NutritionEstimate(
-        fiberGrams = base.fiberGrams * mult,
-        sugarGrams = base.sugarGrams * mult,
-        sodiumMg = base.sodiumMg * mult,
-        potassiumMg = base.potassiumMg * mult,
-        calciumMg = base.calciumMg * mult,
-        ironMg = base.ironMg * mult,
-        vitaminCMg = base.vitaminCMg * mult,
-        vitaminDMcg = base.vitaminDMcg * mult,
-        vitaminAMcg = base.vitaminAMcg * mult,
-        vitaminB12Mcg = base.vitaminB12Mcg * mult
-    )
+    val isOff = candidate?.product?.sourceUrl?.contains("openfoodfacts") == true || 
+                candidate?.explanation?.contains("Open Food Facts") == true
+    val targetCalories = food.estimatedCalories?.toDouble()
+    val candidateCalories = candidate?.product?.macrosPer100g?.calories?.toDouble()
+
+    return if (isOff && targetCalories != null && candidateCalories != null && candidateCalories > 0) {
+        val scale = targetCalories / candidateCalories
+        NutritionEstimate(
+            fiberGrams = base.fiberGrams * scale,
+            sugarGrams = base.sugarGrams * scale,
+            sodiumMg = base.sodiumMg * scale,
+            potassiumMg = base.potassiumMg * scale,
+            calciumMg = base.calciumMg * scale,
+            ironMg = base.ironMg * scale,
+            vitaminCMg = base.vitaminCMg * scale,
+            vitaminDMcg = base.vitaminDMcg * scale,
+            vitaminAMcg = base.vitaminAMcg * scale,
+            vitaminB12Mcg = base.vitaminB12Mcg * scale
+        )
+    } else {
+        val mult = food.quantityMultiplier
+        NutritionEstimate(
+            fiberGrams = base.fiberGrams * mult,
+            sugarGrams = base.sugarGrams * mult,
+            sodiumMg = base.sodiumMg * mult,
+            potassiumMg = base.potassiumMg * mult,
+            calciumMg = base.calciumMg * mult,
+            ironMg = base.ironMg * mult,
+            vitaminCMg = base.vitaminCMg * mult,
+            vitaminDMcg = base.vitaminDMcg * mult,
+            vitaminAMcg = base.vitaminAMcg * mult,
+            vitaminB12Mcg = base.vitaminB12Mcg * mult
+        )
+    }
 }
 
 private fun resolvedIngredientMacros(ingredient: ResolvedIngredient): MacroEstimate? {
@@ -2250,5 +2441,24 @@ private fun resolvedIngredientMacros(ingredient: ResolvedIngredient): MacroEstim
 @Suppress("UNUSED_PARAMETER")
 private fun ingredientLogTitle(ingredient: ResolvedIngredient, composition: MealComposition?): String {
     return ingredient.label
+}
+
+private fun MealCandidate.toLogEntry(query: String): FoodLogEntry {
+    val finalMacros = resolvedMacros(listOf(this), mealComposition) 
+        ?: product.macrosPer100g 
+        ?: MacroEstimate(0, 0.0, 0.0, 0.0)
+    
+    val finalNutrition = resolvedNutrition(listOf(this), mealComposition)
+        ?: product.nutritionPerServing
+
+    return FoodLogEntry(
+        id = UUID.randomUUID().toString(),
+        title = if (product.name == "Structured meal") compositionTitle(mealComposition, listOf(this), query) else product.name,
+        source = product.sourceUrl.ifBlank { explanation },
+        timestampUtcMillis = System.currentTimeMillis(),
+        macros = finalMacros,
+        nutrition = finalNutrition,
+        imageUrl = product.imageUrl
+    )
 }
 
